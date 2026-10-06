@@ -1,0 +1,911 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>野球盤甲子園</title>
+<meta name="robots" content="noindex,nofollow">
+<style>
+/* レイアウト＝上にスコア、中央に野球盤そのもの、下にレバーとボタン（おもちゃの操作盤） */
+:root{color-scheme:dark;--bg:#2a1a10;--wood:#5a3418;--panel:#1d120a;--ink:#fbf6ea;--sub:#d8c7ae;--red:#d8332a;--blue:#2d6fd2;--yellow:#f2c230;--green:#2f8a46;--gold:#e8a33d;--line:#7a5233}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif}
+#app{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:10px 28px}
+h1{font-size:20px;margin:6px 0 2px}
+.sub{color:var(--sub);font-size:13px;line-height:1.6}
+.lab{font-size:12px;color:var(--sub);margin:10px 0 4px;letter-spacing:.05em}
+button{font:inherit;color:var(--ink);background:#3a2616;border:2px solid var(--line);border-radius:12px;padding:10px 12px;font-size:15px;cursor:pointer;min-height:44px}
+button:disabled{opacity:.35}
+button.on{border-color:var(--yellow);background:#5a4012}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0}
+/* おもちゃのボタン */
+.toy{border-radius:50%;width:84px;height:84px;font-weight:bold;font-size:15px;border:4px solid #0006;box-shadow:inset 0 -6px 0 #0004,0 4px 0 #0008}
+.toy:active{transform:translateY(3px);box-shadow:inset 0 -3px 0 #0004,0 1px 0 #0008}
+.toy.red{background:var(--red)}.toy.blue{background:var(--blue)}.toy.yel{background:var(--yellow);color:#222}
+.bigbat{width:100%;height:76px;border-radius:40px;font-size:24px;font-weight:bold;background:var(--red);border:4px solid #0006;box-shadow:inset 0 -6px 0 #0004,0 4px 0 #0008}
+.knob{display:flex;gap:0;border-radius:12px;overflow:hidden;border:2px solid var(--line)}
+.knob button{border:0;border-radius:0;flex:1;min-width:0;padding:8px 0;background:#3a2616}
+.knobs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.knobs .lab{margin-top:4px}
+.knob button.on{background:var(--yellow);color:#222;font-weight:bold}
+.ctl{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}
+.ctlcol{min-width:0}
+#board{display:block;width:100%;border-radius:14px;background:#000;touch-action:manipulation}
+#sb{display:flex;align-items:center;gap:12px;background:var(--panel);border-radius:12px;padding:6px 10px;margin-bottom:6px;font-size:14px;flex-wrap:wrap}
+.ls{display:grid;grid-template-columns:62px repeat(3,22px) 30px;gap:2px;text-align:center;font-variant-numeric:tabular-nums}
+.ls .h{color:var(--sub);font-size:11px}.ls .tm{text-align:left}
+.cnt{display:grid;grid-template-columns:14px auto;gap:2px 6px;font-size:12px;align-items:center}
+.dots span{display:inline-block;width:11px;height:11px;border-radius:50%;background:#444;margin-right:3px}
+.dots .g{background:#5fd068}.dots .y{background:#f2c94c}.dots .r{background:#e0574f}
+.now{font-size:12px;line-height:1.5;min-width:0}
+#log{background:var(--panel);border-radius:12px;padding:8px 10px;margin-top:8px;font-size:13px;line-height:1.6;max-height:130px;overflow:auto}
+#log div:first-child{color:var(--yellow);font-weight:bold}
+/* ラインナップ */
+.order{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.slot{background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:4px;text-align:center;font-size:11px;cursor:pointer;min-width:0}
+.slot.sel{border-color:var(--yellow)}
+.slot>div,.slot img,.card img{width:100%;aspect-ratio:1;border-radius:50%;object-fit:cover;border:3px solid #fff;display:block;background:#fff}
+.slot b{display:block;font-size:12px;color:var(--yellow)}
+.roster{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.roster .card{display:grid;grid-template-columns:44px 1fr;gap:2px 8px;align-items:center}.roster .card img,.roster .card .lockface{width:44px;grid-row:span 3}.roster .card .nm{margin-top:0}
+.card{background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:6px;font-size:11px;line-height:1.35;cursor:pointer;min-width:0}
+.card.used{opacity:.45}
+.card.lock{border-style:dashed;cursor:default}
+.card .nm{font-weight:bold;font-size:12px;margin-top:4px;overflow-wrap:anywhere}
+.card .sk{color:var(--yellow)}
+.lockface{width:100%;aspect-ratio:1;border-radius:50%;border:3px dashed var(--sub);display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--sub)}
+.go{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.go button{min-height:64px;font-size:16px;font-weight:bold}
+.go .auto{background:var(--blue)}.go .man{background:var(--red)}
+.opp{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.opp .card{display:flex;flex-direction:column;align-items:center;text-align:center}
+.opp .card img{width:56px}
+.res{background:var(--panel);border-radius:12px;padding:14px;margin-top:10px;line-height:1.8}
+.res h2{margin:0 0 6px;font-size:20px}
+.box{display:grid;grid-template-columns:1fr 40px 40px;gap:2px 8px;font-size:13px;font-variant-numeric:tabular-nums}
+.box .h{color:var(--sub)}
+.rk{display:grid;grid-template-columns:24px 1fr 60px;gap:2px 6px;font-size:13px}
+.rk .me{color:var(--yellow);font-weight:bold}
+@media (max-width:480px){.roster{grid-template-columns:repeat(2,1fr)}.toy{width:72px;height:72px;font-size:13px}}
+@media (prefers-reduced-motion:reduce){.toy:active{transform:none}}
+/* 試合画面：1画面に収める */
+body.playing{overflow:hidden}
+#app.game{max-width:none;height:100vh;height:100dvh;padding:8px 12px;display:grid;gap:8px;grid-template-columns:100%;grid-template-rows:auto minmax(0,1fr) auto;grid-template-areas:"sb" "board" "ctrl"}
+#app.game #sb{grid-area:sb;margin:0;padding:4px 8px;font-size:13px}
+#app.game #boardwrap{grid-area:board;min-height:0;display:flex;align-items:center;justify-content:center}
+#app.game #ctrl{grid-area:ctrl;margin:0}
+#app.game #log{display:none}
+#app.game #ctrl .lab{margin:2px 0 2px}
+@media (min-aspect-ratio:1/1) and (min-width:700px){
+ #app.game{grid-template-columns:minmax(0,1fr) minmax(300px,380px);grid-template-rows:auto auto minmax(0,1fr);grid-template-areas:"board sb" "board ctrl" "board log"}
+ #app.game #log{display:block;grid-area:log;max-height:none;overflow:auto;margin:0}
+}
+.pgrid{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:end}
+.pgrid .span2{grid-column:1/-1}
+.throw{min-height:56px;font-size:20px;font-weight:bold;background:var(--red);border:4px solid #0006;border-radius:28px;box-shadow:inset 0 -5px 0 #0004}
+.batrow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center}
+.batrow .bigbat{height:64px}
+.mini{min-height:36px;padding:4px 10px;font-size:13px}
+#app.game .toy{width:64px;height:64px;font-size:13px}
+#resbox:empty{display:none}
+#app.game #resbox{position:fixed;inset:4vh 4vw;overflow:auto;z-index:5;box-shadow:0 10px 40px #000a;border-radius:14px}
+#app.game #resbox .res{margin:0;min-height:100%}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+// ---------------- claude.ai の外で対戦する（PeerJS でブラウザ同士を直接つなぐ） ----------------
+// net_v4.js が使う「部屋」（join → presence / onPeers / peers / connected / onConnection / leave）と同じ形を、PeerJS で作る。
+// 部屋を作る側は合言葉から決まる名前で待ち、入る側はその名前へつなぐ。やり取りは「自分の状態」の丸ごとの送り合いだけ。
+(function(){
+ const PFX='ykbq7-';
+ function mkRoom(name){
+  const code=name.replace(/^ykb-/,'');
+  const host=NET.role==='host';
+  let me={}, opp=null, conn=null, peer=null, okConn=false, sendT=0, pend=false;
+  const peersCb=[], connCb=[];
+  const list=()=>{ const a=[{peer:'me',sameTab:true,isMe:true,presence:me}]; if(opp)a.push({peer:'opp',sameTab:false,isMe:false,presence:opp}); return a; };
+  const firePeers=()=>{ const ps=list(); peersCb.forEach(f=>{try{f({peers:ps,joined:[],left:[],updated:[]});}catch(e){}}); };
+  const fireConn=()=>connCb.forEach(f=>{try{f(okConn);}catch(e){}});
+  const flush=()=>{ pend=false; sendT=performance.now(); if(conn&&conn.open){ try{conn.send(me);}catch(e){} } };
+  const send=()=>{ if(pend)return; const w=33-(performance.now()-sendT); if(w<=0)flush(); else {pend=true;setTimeout(flush,w);} };
+  const wire=c=>{
+   conn=c;
+   c.on('open',()=>{ okConn=true; fireConn(); flush(); });
+   c.on('data',d=>{ if(d&&typeof d==='object'){ opp=d; firePeers(); } });
+   c.on('close',()=>{ okConn=false; opp=null; fireConn(); firePeers(); });
+   c.on('error',()=>{});
+  };
+  return new Promise((res,rej)=>{
+   let done=false;
+   const fail=code=>{ if(done)return; done=true; try{peer&&peer.destroy();}catch(e){} rej({code}); };
+   peer=host?new Peer(PFX+code.toLowerCase()):new Peer();
+   peer.on('error',e=>{ const t=e&&e.type||'error';
+    if(!done)return fail(t==='unavailable-id'?'合言葉が使用中':t==='peer-unavailable'?'その合言葉の部屋がありません':t==='network'||t==='server-error'||t==='socket-error'?'つなぎ役のサーバーに届きません':t);
+    if(t==='peer-unavailable'&&!host){ st2('その合言葉の部屋がありません。合言葉を確かめてください'); }
+   });
+   peer.on('open',()=>{
+    if(host){ peer.on('connection',c=>{ if(conn&&conn.open){c.close();return;} wire(c); }); }
+    else { wire(peer.connect(PFX+code.toLowerCase(),{reliable:true})); }
+    done=true;
+    res({
+     presence:async patch=>{ for(const k in patch){ if(patch[k]===null)delete me[k]; else me[k]=patch[k]; } me=Object.assign({},me); send(); },
+     onPeers:(f)=>{ peersCb.push(f); setTimeout(()=>f({peers:list(),joined:[],left:[],updated:[]}),0); return ()=>{}; },
+     onConnection:(f)=>{ connCb.push(f); setTimeout(()=>f(okConn),0); return ()=>{}; },
+     peers:()=>list(),
+     connected:()=>okConn,
+     leave:async()=>{ try{conn&&conn.close();}catch(e){} try{peer.destroy();}catch(e){} }
+    });
+   });
+   setTimeout(()=>fail('つなぎ役のサーバーから返事がありません'),12000);
+  });
+ }
+ function st2(t){ const el=document.getElementById('nst'); if(el)el.textContent=t; }
+ window.YKB_P2P={ join:mkRoom };
+})();
+
+</script>
+<script>
+// ====================================================================
+// 野球盤甲子園 モックv3（2026-10-01）
+// 方針（西P 10/1）＝リアル野球盤をデジタルで操作している感覚。3Dのキャラは出さない。
+//   画面は野球盤の盤面1枚。選手は人形（ステッカーを貼ったコマ）。球は鉄球。
+//   テンポよく。オートモード＝ラインナップだけ決めて任せる。コラボキャラをステッカーとして入れて遊ぶ。
+// step(dt) はグローバル（rAFが止まる環境では外から回して検証する）
+// ====================================================================
+const R=()=>Math.random();
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const gauss=()=>{let u=0,v=0;while(!u)u=R();while(!v)v=R();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)};
+const pick=a=>a[Math.floor(R()*a.length)];
+const sum=a=>a.reduce((x,y)=>x+y,0);
+
+// ---------------- 画像（ステッカー） ----------------
+const IMG={};
+function img(k){ if(!IMG[k]){const im=new Image(); im.src='img/'+k+'.jpg'; IMG[k]=im;} return IMG[k]; }
+const imgOk=im=>im&&im.complete&&im.naturalWidth>0;
+
+// ---------------- 特徴（90年代のゲームのように、ざっくり1人1つ） ----------------
+// 打者の特徴は「盤面」が変わって見える。投手の特徴は「球」が変わって見える
+const BTYPE={
+ power:{lab:'パワー',ic:'力',col:'#e8453a',txt:'ホームランゾーンが広がる',m:3,p:5,s:2},
+ meet: {lab:'ミート',ic:'芯',col:'#2f9be0',txt:'アウトの穴が小さくなる',m:5,p:2,s:3},
+ speed:{lab:'俊足',ic:'足',col:'#3fbf5f',txt:'内野で止まってもセーフ',m:4,p:2,s:5},
+ normal:{lab:'ふつう',ic:'',col:'#888',txt:'',m:3,p:3,s:3}
+};
+const PTYPE={
+ fast: {lab:'剛速球',ic:'速',col:'#ff5d3a',txt:'とにかく速い'},
+ curve:{lab:'くねくね',ic:'曲',col:'#b05ce0',txt:'蛇行して大きく曲がる'},
+ magic:{lab:'魔球',ic:'魔',col:'#3a7bff',txt:'消える魔球の名手'},
+ normal:{lab:'ふつう',ic:'',col:'#888',txt:''}
+};
+// 2つ目の特徴の候補（打順の並び＝TEAMSのlineの順。nullは1つだけ）と、投手の特徴の候補
+const CAND2={mlb:['meet',null,'meet','speed',null,'speed',null,null,'power'],taka:['meet',null,'speed','meet',null,'power',null,'speed','power'],
+ mars:[null,'power','speed',null,null,null,null,null,null],jupiter:[null,null,'meet',null,null,null,'speed',null,null],venus:['meet',null,null,null,'speed',null,null,null,null]};
+const PCAND={mlb:[['fast'],['curve','fast']],taka:[['magic','curve'],['curve','magic']],mars:[['magic','fast']],jupiter:[['fast','curve']],venus:[['curve','magic']]};
+// 選手＝[名前, 打者の特徴, ステッカー]。ステッカーは画像（img/*.jpg）か、1文字のシール（g:字）
+const TEAMS={
+ mlb:{key:'mlb',name:'MLBチーム',short:'MLB',col:'#1f5bc4',mine:true,desc:'長打と剛速球。パワーで押す',
+  line:[['吉田 コウタ','speed','y4'],['吉田 課長','meet','y2'],['キャプテン吉田','power','y5'],['吉田 剛','power','y1'],['吉田 山','power','y6'],['吉田 ミク','meet','y7'],['吉田 ナース','normal','y9'],['吉田 ハル','meet','y3'],['吉田 源','speed','y8']],
+  pit:[['吉田 山','fast','y6',5,2],['吉田 ナース','curve','y9',3,4]]},
+ taka:{key:'taka',name:'秘密結社チーム',short:'結社',col:'#c8282d',mine:true,desc:'足とくせ球。ちょこまか攻める',
+  line:[['リーダー','speed','g:リ'],['参謀','meet','g:参'],['ボス','power','g:ボ'],['博士','power','g:博'],['ヒーロー','power','g:ヒ'],['超能力くん','meet','g:超'],['戦闘員A','speed','g:A'],['戦闘員B','normal','g:B'],['戦闘員C','speed','g:C']],
+  pit:[['超能力くん','magic','g:超',3,3],['博士','curve','g:博',3,4]]},
+ mars:{key:'mars',name:'火星代表',short:'火星',col:'#d94a40',desc:'消える魔球の名手',
+  line:[['火星1番','speed','mars'],['火星2番','meet','mars'],['火星3番','power','mars'],['火星4番','power','mars'],['火星5番','normal','mars'],['火星6番','meet','mars'],['火星7番','normal','mars'],['火星8番','normal','mars'],['火星9番','speed','mars']],
+  pit:[['魔球のマルス','magic','mars',4,3]]},
+ jupiter:{key:'jupiter',name:'木星代表',short:'木星',col:'#c27b2f',desc:'マッハ3の剛速球と大砲',
+  line:[['木星1番','meet','jupiter'],['木星2番','normal','jupiter'],['木星3番','power','jupiter'],['木星4番','power','jupiter'],['木星5番','power','jupiter'],['木星6番','normal','jupiter'],['木星7番','meet','jupiter'],['木星8番','normal','jupiter'],['木星9番','normal','jupiter']],
+  pit:[['マッハ大赤斑','fast','jupiter',5,2]]},
+ venus:{key:'venus',name:'金星代表',short:'金星',col:'#8e5bb0',desc:'腕8本のくねくね球と俊足',
+  line:[['金星1番','speed','venus'],['金星2番','speed','venus'],['金星3番','meet','venus'],['金星4番','meet','venus'],['金星5番','power','venus'],['金星6番','normal','venus'],['金星7番','speed','venus'],['金星8番','normal','venus'],['金星9番','normal','venus']],
+  pit:[['八本腕','curve','venus',3,5]]}
+};
+// ---------------- 盤面（野球盤） ----------------
+// 座標＝本塁(0,0)・センター方向が+y
+const ZONE=3.0, REACH=4.6, BR=0.75, SLOT_Y=-3.9; /* BR＝鉄球の半径（線をかすればストライク） */ const MAG_Y=4.5; const MOUND_Y=10.5, FENCE=60, PLATE_Y=0.4, SWEET=0.06, WIN=0.12;
+const TUNE={winHuman:0.17,humanSlow:0.85,cpuVsHuman:0.03,zoomCam:1.85,kankyu:0.3,zoom:2.3,spread:10,earthEye:-0.045,v0:24,v1:46,rOut:2.8,rHit:1.9,inf:24,dec:24}; window.TUNE=TUNE;
+const POCKETS=[
+ {x:12.5,y:16,k:'out',nm:'一塁',v:40},{x:6.5,y:25,k:'out',nm:'二塁',v:40},{x:-6.5,y:25,k:'out',nm:'遊撃',v:40},{x:-12.5,y:16,k:'out',nm:'三塁',v:40},{x:0,y:13.6,k:'out',nm:'投手',v:30},
+ {x:-27,y:36,k:'out',nm:'左翼',v:34},{x:-14,y:42,k:'out',nm:'左中間',v:34},{x:0,y:44,k:'out',nm:'中堅',v:34},{x:14,y:42,k:'out',nm:'右中間',v:34},{x:27,y:36,k:'out',nm:'右翼',v:34},
+ {x:-17,y:30,k:'hit',v:36},{x:17,y:30,k:'hit',v:36},{x:0,y:34,k:'hit',v:36},{x:-21,y:46,k:'hit',v:36},{x:21,y:46,k:'hit',v:36},{x:-7,y:47,k:'hit',v:36},{x:7,y:47,k:'hit',v:36},
+ {x:-14,y:55,k:'2b',v:38},{x:14,y:55,k:'2b',v:38},{x:0,y:56,k:'out',nm:'中堅（フェンス際）',v:30},
+ {x:-37,y:40,k:'3b',v:40},{x:37,y:40,k:'3b',v:40}
+];
+// 守備の人形を立てる位置（穴の少し後ろ）
+const FIELDERS=[[12.5,19.4],[6.5,28.4],[-6.5,28.4],[-12.5,19.4],[-27,39.4],[0,47.4],[27,39.4]];
+
+// ---------------- 状態 ----------------
+let G=null; window.G=null;
+let MYTEAM='mlb', ORDER=[0,1,2,3,4,5,6,7,8], PIT=0, OPPKEY='taka', MYSIDE='home';
+try{const s=JSON.parse(localStorage.getItem('ykb_v4')||'null'); if(s&&TEAMS[s.t]&&TEAMS[s.o]&&s.r&&s.r.length===9){MYTEAM=s.t;ORDER=s.r;PIT=s.p||0;OPPKEY=s.o;}}catch(e){}
+function saveLineup(){try{localStorage.setItem('ykb_v4',JSON.stringify({t:MYTEAM,r:ORDER,p:PIT,o:OPPKEY}));}catch(e){}}
+function mkTeam(key,mine){
+ const T=TEAMS[key], ord=mine?ORDER:[0,1,2,3,4,5,6,7,8];
+ const line=ord.map((i,k)=>{const [n,t,im]=T.line[i]; const B=BTYPE[t]; const c2=(CAND2[key]||[])[i]; return {n,bt:t,cands:c2?[t,c2]:[t],rev:!c2,m:B.m,p:B.p,s:B.s,img:im,num:mine?null:k+1,ab:0,h:0,rbi:0};});
+ const pp=T.pit[mine?Math.min(PIT,T.pit.length-1):0];
+ const pc=(PCAND[key]||[])[T.pit.indexOf(pp)]||[pp[1]];
+ const pit={n:pp[0],pt:pc[0],cands:pc,img:pp[2],spd:pp[3],brk:pp[4],magic:pc.includes('magic')?5:2,vanishY:pc.includes('magic')?1.5:2.8,mach:pc.includes('fast'),arms:key==='venus',sta:1,stMax:mine?70:99};
+ return {key,name:T.name,short:T.short,col:T.col,line,idx:0,pit,magic:pit.magic};
+}
+function newGame(mode){
+ G={mode,phase:'ready',t:0,timer:0.6,inning:1,top:true,outs:0,b:0,s:0,bases:[null,null,null],
+  score:{away:[0,0,0],home:[0,0,0]},T:MYSIDE==='home'?{away:mkTeam(OPPKEY,false),home:mkTeam(MYTEAM,true)}:{away:mkTeam(MYTEAM,true),home:mkTeam(OPPKEY,false)},mine:MYSIDE,landing:null,banner:null,
+  pitch:null,ball:null,swing:null,bunt:false,msg:'',msgT:0,log:[],
+  sel:{spd:2,brk:0,course:2,magic:false},spd:mode==='auto'?2.5:1,
+  st:{sw:0,ct:0,just:0,magicSeen:0,magicHeld:0,K:0,eyeOK:0,eyeNG:0},over:false,cpuSwingAt:null,lastTiming:null,flash:0};
+ window.G=G;
+ log(`プレイボール！ ${G.T.away.name} vs ${G.T.home.name}`); announce();
+ if(mode==='manual'){ say('プレイボール！',1.8); G.timer=humanBats()?2.6:1.6; }
+}
+const bat=()=>G.top?G.T.away:G.T.home;
+const fld=()=>G.top?G.T.home:G.T.away;
+const earthBatting=()=>G.top?G.mine==='away':G.mine==='home'; // 自分のチームが攻撃中か
+const myT=()=>G.T[G.mine], opT=()=>G.T[G.mine==='home'?'away':'home'];
+const curBatter=()=>{const t=bat();return t.line[t.idx%9]};
+const curPitcher=()=>fld().pit;
+const humanBats=()=>G.mode!=='auto'&&earthBatting();
+const humanPitches=()=>G.mode!=='auto'&&!earthBatting();
+// 打者が替わるたびに盤面が変わる（ざっくり3通り）
+function mods(vis){
+ const b=G&&G.T?curBatter():null, t=b?((vis&&!b.rev)?'normal':b.bt):'normal';
+ return {outR:t==='meet'?TUNE.rOut*0.5:TUNE.rOut, hrAng:t==='power'?45:30, hrV:t==='power'?4:14, inf:t==='speed'?12:TUNE.inf, t};
+}
+// 打席・投手の紹介（大きく出す）
+function announce(){
+ const b=curBatter(), B=BTYPE[b.bt], p=curPitcher(), Pt=PTYPE[p.pt];
+ if(b.cands.length>1){b.bt=pick(b.cands);b.rev=false;} else {b.bt=b.cands[0];b.rev=true;}
+ G.banner={t:1.3, top:`${b.n}`, bt:b.bt, cands:b.cands, rev:b.rev, pt:p.pt, pn:p.n};
+}
+function log(s){G.log.unshift(s);if(G.log.length>40)G.log.pop();}
+function say(s,t=1.0){G.msg=s;G.msgT=t;}
+function inningLabel(){return `${G.inning}回${G.top?'表':'裏'}`;}
+
+// ---------------- 投球（レバー・速さつまみ・変化つまみ・魔球レバー） ----------------
+// 変化の幅：段数（-2〜+2）×1段の幅。1段≒コース1マスぶん（変化球の得意な投手ほど少し大きい）
+function brkShift(pt,lv){return lv*(1.15+pt.brk*0.12)*(pt.pt==='curve'?1.7:1);} // くねくねは曲がりも大きい
+function pitchParams(pt,spdLv,brk,course,magic,aimX){
+ // aim＝投げ出す向き（本塁で届くはずの位置）。曲がる球は本塁の手前で shift だけ横にずれる
+ const aim0=aimX!==undefined?aimX:[-(ZONE+1.6),-1.8,0,1.8,ZONE+1.6][course];
+ let v=magic?30:[15,26+pt.spd,44+pt.spd*4][spdLv];
+ if(pt.pt==='fast'&&spdLv>=1&&!magic)v*=1.18; v=Math.min(v,66); // 剛速球（速すぎると誰も打てないので上限）
+ const fat=1-pt.sta;
+ const aim=aim0+gauss()*(0.22+fat*0.7);
+ const rx=pt.arms?pick([-3,-2,-1,1,2,3]):0;
+ const shift=magic?0:brkShift(pt,brk);
+ return {type:magic?'magic':(brk?'curve':spdLv===0?'slow':'fast'),v,aim,tx:aim+shift,rx,shift,vanishY:pt.vanishY||2.8};
+}
+function startPitch(pp){
+ const T=10.5/pp.v, tc=(MAG_Y-PLATE_Y)/pp.v;
+ const acc=pp.shift?2*pp.shift/(tc*tc):0;
+ const vx=(pp.aim-pp.rx)/T; // 狙った方へまっすぐ投げ出す
+ G.pitch=pp;
+ G.ball={x:pp.rx,y:MOUND_Y,vx,vy:-pp.v,ax:acc,inplay:false,vanished:false,crossT:null,done:false,trail:[]};
+ G.phase='pitch';G.t=0;G.swing=null;G.cpuSwingAt=null;G.landing=null;
+ const p=curPitcher(); p.sta=Math.max(0,p.sta-1/p.stMax);
+ if(pp.type==='magic')fld().magic--;
+ G.bunt=false;
+ if(!humanBats())planCpuSwing(pp);
+ { const tc=(MOUND_Y-PLATE_Y)/pp.v; G.expT=(G.expT||0.35)*0.4+tc*0.6; G.lastSpd=pp.type==='slow'?0:pp.v>40?2:1; }
+}
+function planCpuSwing(pp){
+ const b=curBatter(); const zone=Math.abs(pp.tx)<=ZONE+BR;
+ let pSw=zone?0.8:0.12+0.05*(5-b.m)+(humanPitches()?0.15:0); // 人が投げるときはボール球に手を出しやすく if(G.b===3&&!zone)pSw=0.15; if(G.s===2)pSw=zone?0.92:0.45;
+ if(pp.type==='magic'){const hold=curPitcher().pt==='magic'?0.38:0.5; if(R()<hold)return;}
+ if(R()>pSw)return;
+ let sig=0.074-0.009*b.m; if(pp.v>29)sig+=0.012*(pp.v-29)/8; if(pp.rx)sig+=0.015; if(pp.shift)sig+=0.006*Math.abs(pp.shift); if(curPitcher().pt==='curve')sig+=0.012;
+ if(earthBatting())sig-=TUNE.earthEye; // オートの勝率を5割前後に寄せる補正
+ if(humanPitches())sig+=TUNE.cpuVsHuman; // 人が投げるときはCPUの打者を少し打ちにくく
+ const tCross=(MOUND_Y-PLATE_Y)/pp.v;
+ const expT=G.expT||0.35; // 目が慣れている到達時間
+ G.cpuSwingAt=tCross-SWEET+(expT-tCross)*TUNE.kankyu*(b.eye?0.6:1)+gauss()*sig;
+}
+function cpuPitch(){
+ const t=fld(),pt=t.pit; if(pt.cands&&pt.cands.length>1)pt.pt=pick(pt.cands);
+ const mz=t.magic>0&&(G.s===2||G.bases[1]||G.bases[2])&&R()<(pt.pt==='magic'?0.4:0.12);
+ if(mz)return pitchParams(pt,1,0,2,true);
+ const last=G.lastSpd; const spdLv=last===2?pick([0,0,2,1]):last===0?pick([2,2,1,0]):(pt.mach?pick([2,2,0]):pick([0,1,2,2]));
+ const brk=pt.pt==='curve'?pick([-2,2,-1,1,-2,2]):pt.brk>=5?pick([-2,2,-2,2,-1,1]):pt.brk>=4?pick([-2,-1,1,2,0,-2,2]):pick([0,0,-1,1,-2,2]);
+ let F=pick([-1.8,0,1.8,-1.8,1.8]);
+ if(G.b<3&&R()<0.4){const sd=R()<0.5?-1:1; F=sd*(R()<0.5?ZONE+BR+0.15+R()*0.5:ZONE+BR+0.9+R()*1.2);} // ボール球（半分はきわどい）
+ const shift=brkShift(pt,brk);
+ const pp=pitchParams(pt,spdLv,brk,2,false,F-shift); if(humanBats())pp.v*=TUNE.humanSlow; // 人が打つときは少し遅く
+ return pp;
+}
+
+// ---------------- 打撃（バネのバット） ----------------
+function doSwing(){
+ if(G.phase!=='pitch'||G.swing)return;
+ G.swing={t:G.t,p0:BAT_REST*(1-(G.ck||0))}; G.ck=0; G.cock=false;
+ if(humanBats())G.st.sw++;
+ const b=G.ball;
+ if(b.crossT!==null)tryContact((G.t+SWEET)-b.crossT);
+}
+function tryContact(err){
+ const b=G.ball,pp=G.pitch;
+ if(b.done)return;
+ if(b.vanished){endPitch('swingMiss',{magic:true});return;}
+ const Wn=humanBats()?TUNE.winHuman:WIN;
+ if(Math.abs(err)>Wn||Math.abs(b.x)>REACH){G.lastTiming=err<0?'早い！':'遅い！';endPitch('swingMiss');return;}
+ const bt=curBatter(); const q=1-Math.pow(Math.abs(err)/Wn,1.5);
+ const ang=err/WIN*55+b.x*6+gauss()*TUNE.spread;
+ const pw=0.5+0.1*bt.p;
+ const v=TUNE.v0+TUNE.v1*pw*Math.pow(q,1.5)*(0.7+0.3*clamp(pp.v/29,0.5,1.8));
+ G.lastTiming=Math.abs(err)<0.03?'ジャスト！':err<0?'早め（引っぱり）':'遅め（流し）';
+ if(humanBats()){G.st.ct++;if(Math.abs(err)<0.03)G.st.just++;}
+ launch(ang,v,false);
+}
+function doBunt(){
+ const b=G.ball;
+ if(b.vanished){endPitch('swingMiss',{magic:true});return;}
+ if(Math.abs(b.x)>ZONE+BR){endPitch('take');return;}
+ launch(gauss()*22,9+R()*7,true);
+}
+function launch(angDeg,v,bunt){
+ { const cb=curBatter(); if(!cb.rev){cb.rev=true; if(BTYPE[cb.bt].ic)say(`${BTYPE[cb.bt].lab}発動！`,1.0);} }
+ const b=G.ball,a=angDeg*Math.PI/180;
+ b.inplay=true;b.bunt=bunt;b.x=0;b.y=0.6;b.vx=Math.sin(a)*v;b.vy=Math.cos(a)*v;b.ax=0;b.trail=[];
+ G.phase='inplay'; if(Math.abs(angDeg)>45)b.foul=true;
+ G.flash=0.12;
+}
+
+// ---------------- 進行 ----------------
+function step(dt){
+ if(!G||G.over)return;
+ dt*=G.spd;
+ { const tg=G.cock||(!humanBats()&&['windup','pitch'].includes(G.phase)&&!G.swing&&!G.bunt); G.ck=G.ck||0; G.ck=tg?Math.min(1,G.ck+dt/0.09):Math.max(0,G.ck-dt/0.3); } // バットを引く（構え）／戻す
+ if(G.msgT>0)G.msgT-=dt; if(G.flash>0)G.flash-=dt; if(G.banner)G.banner.t-=dt; if(G.landing)G.landing.t-=dt;
+ if(G.phase==='ready'){
+  G.timer-=dt;
+  if(G.timer<=0&&!humanPitches()&&(!humanBats()||G.cock)){const wd=humanBats()?0.95:0.12; const nx=netOn()?netTakePitch():cpuPitch(); if(nx){G.next=nx;G.phase='windup';G.timer=wd;G.windT=wd;}}
+ } else if(G.phase==='windup'){
+  G.timer-=dt; if(G.timer<=0){startPitch(G.next); if(humanBats())G.bunt=!!G.buntOn;}
+ } else if(G.phase==='pitch'){
+  G.t+=dt; const b=G.ball;
+  b.trail.push([b.x+(b.wob||0),b.y]); if(b.trail.length>(curPitcher().pt==='fast'?12:curPitcher().pt==='curve'?16:7))b.trail.shift();
+  b.vx+=(b.y<MAG_Y&&b.y>PLATE_Y?b.ax:0)*dt; b.x+=b.vx*dt; b.y+=b.vy*dt;
+  if(curPitcher().pt==='curve'){const k=(MOUND_Y-b.y); b.wob=2.4*Math.sin(k*1.1)*clamp((b.y-1.2)/4,0,1);} else b.wob=0;
+  if(!b.vanished&&G.pitch.type==='magic'&&b.y<G.pitch.vanishY)b.vanished=true;
+  if(G.cpuSwingAt!==null&&G.t>=G.cpuSwingAt){G.cpuSwingAt=null;doSwing();}
+  if(b.crossT===null&&b.y<=PLATE_Y){
+   b.crossT=G.t; b.crossX=b.x; b.vx=0; b.ax=0;
+   if(G.bunt){doBunt();return;}
+   if(G.swing){tryContact((G.swing.t+SWEET)-b.crossT);if(G.phase!=='pitch')return;}
+  }
+  if(b.crossT!==null&&b.y<=SLOT_Y&&!b.done){
+   if(G.swing&&!b.inplay){endPitch('swingMiss');return;}
+   if(!G.swing){endPitch('take');return;}
+  }
+ } else if(G.phase==='inplay'){
+  rollBall(dt*1.8);
+ } else if(G.phase==='result'){
+  G.timer-=dt; if(G.judge)G.judge.t-=dt; if(G.timer<=0)afterResult();
+ }
+}
+window.step=step;
+
+function rollBall(dt){
+ const b=G.ball; const sp=Math.hypot(b.vx,b.vy);
+ b.trail.push([b.x,b.y]); if(b.trail.length>10)b.trail.shift();
+ if(b.foul&&Math.hypot(b.x,b.y)>8){endPitch('foul');return;}
+ const ns=Math.max(0,sp-TUNE.dec*dt); if(sp>0){b.vx*=ns/sp;b.vy*=ns/sp;}
+ b.x+=b.vx*dt;b.y+=b.vy*dt;
+ const r=Math.hypot(b.x,b.y), ang=Math.atan2(b.x,b.y)*180/Math.PI;
+ if(!b.foul){
+  const M=mods();
+  for(const p of POCKETS){ if(Math.hypot(b.x-p.x,b.y-p.y)<(p.k==='out'?M.outR:TUNE.rHit)&&ns<p.v){ b.x=p.x;b.y=p.y; b.inPocket=true; return resolveInPlay(p.k,p); } }
+  if(r>=FENCE){
+   if(Math.abs(ang)<=M.hrAng+1&&ns>=M.hrV)return resolveInPlay('hr');
+   const nx=b.x/r,ny=b.y/r; b.x=nx*(FENCE-0.3);b.y=ny*(FENCE-0.3); b.wall=true; return resolveInPlay('2b'); // フェンス直撃＝ツーベース
+  }
+  if(Math.abs(ang)>47&&r>3){ if(r<22)return endPitch('foul'); return resolveInPlay(r>40?'2b':'hit'); }
+ }
+ if(ns<0.6){ if(r<mods().inf){ if(!b.bunt&&mods().t==='speed'&&r>9&&R()<0.5){G.infHit=true;return resolveInPlay('hit');} return resolveInPlay('ground'); } return resolveInPlay(r>=44?'2b':'hit'); }
+}
+
+function endPitch(kind,opt={}){
+ const b=G.ball; b.done=true; let txt='';
+ if(G.pitch&&G.pitch.type==='magic'&&earthBatting()){G.st.magicSeen++; if(kind==='take')G.st.magicHeld++;}
+ if(kind==='take'){
+  const cx=b.crossX!==undefined?b.crossX:G.pitch.tx;
+  const strike=!b.vanished&&Math.abs(cx)<=ZONE+BR;
+  G.judge={slot:strike?'S':'B',x:cx,t:0.9,edge:strike&&Math.abs(cx)>ZONE-BR};
+  if(b.vanished){txt='消える魔球を見送った！ボール';G.judge.slot='B';addBall();}
+  else if(strike){txt=G.judge.edge?'かすった！ストライク':'見逃し ストライク';if(earthBatting())G.st.eyeNG++;addStrike();}
+  else{txt=earthBatting()?'ボール！ナイス見極め':'ボール';if(earthBatting())G.st.eyeOK++;addBall();}
+ } else if(kind==='swingMiss'){ const bad=!opt.magic&&Math.abs(b.crossX!==undefined?b.crossX:G.pitch.tx)>ZONE+BR; txt=opt.magic?'消える魔球！空振り！':bad?'ボール球に手を出した！':'空振り！'; if(bad&&earthBatting())G.st.eyeNG++; addStrike(); }
+ else if(kind==='foul'){ txt='ファウル'; if(G.s<2)G.s++; }
+ say(txt,0.6); if(kind!=='foul')log(`${inningLabel()} ${curBatter().n}：${txt}`);
+ G.phase='result';G.timer=0.35;
+}
+function addBall(){G.b++; if(G.b>=4)walk();}
+function addStrike(){G.s++; if(G.s>=3)strikeout();}
+function strikeout(){ const bt=curBatter();bt.ab++; if(!earthBatting())G.st.K++; out(1,`${bt.n} 三振！`); nextBatter(); }
+function walk(){ const bt=curBatter(); force(bt); log(`${inningLabel()} ${bt.n}：フォアボール`); say('フォアボール',0.8); nextBatter(); }
+function force(bt){ const B=G.bases; if(B[0]){ if(B[1]){ if(B[2])score(1); B[2]=B[1]; } B[1]=B[0]; } B[0]=bt; }
+function score(n){ const k=G.top?'away':'home'; G.score[k][G.inning-1]+=n; }
+function out(n,txt){ G.outs+=n; if(txt){log(`${inningLabel()} ${txt}`);say(txt.replace(/^.*? /,''),0.9);} }
+function nextBatter(){ bat().idx++; G.b=0;G.s=0; G.expT=null; G.needAnnounce=true; }
+
+function resolveInPlay(k,p){
+ const b=G.ball,bt=curBatter(),B=G.bases; b.done=true;
+ let txt=''; const pos=p&&p.nm?p.nm:'';
+ if(b.bunt){
+  bt.ab++;
+  if(k==='hit'||k==='2b'){ advance(1,bt);txt='セーフティバント！';bt.h++; }
+  else if(B.some(x=>x)&&R()<0.28){ const i=B[2]?2:B[1]?1:0; B[i]=null; out(1); if(!B[0])B[0]=bt; txt='バント失敗（先の走者が封殺）'; }
+  else{ const had=B.some(x=>x); if(B[2]&&G.outs<2&&R()<0.4){score(1);B[2]=null;} if(B[1]){B[2]=B[1];B[1]=null;} if(B[0]){B[1]=B[0];B[0]=null;} out(1); txt=had?'送りバント成功':'バント…アウト'; }
+ } else if(k==='hr'){ bt.ab++;bt.h++; const n=1+B.filter(x=>x).length; B[0]=B[1]=B[2]=null; score(n); bt.rbi+=n; txt=n>1?`ホームラン！${n}点！`:'ホームラン！'; }
+ else if(k==='3b'){ bt.ab++;bt.h++; const n=B.filter(x=>x).length; B[0]=B[1]=null;B[2]=bt; score(n); bt.rbi+=n; txt='スリーベース！'; }
+ else if(k==='2b'){ bt.ab++;bt.h++; let n=0; if(B[2])n++; if(B[1])n++; const r1=B[0]; B[2]=null;B[1]=bt;B[0]=null; if(r1){ if(R()<0.35+0.08*r1.s)n++; else B[2]=r1; } score(n); bt.rbi+=n; txt=(b.wall?'フェンス直撃！ツーベース':'ツーベース！')+(n?` ${n}点`:''); }
+ else if(k==='hit'){ bt.ab++;bt.h++; let n=0; if(B[2]){n++;B[2]=null;} if(B[1]){ if(R()<0.5+0.08*B[1].s)n++; else B[2]=B[1]; B[1]=null;} if(B[0]){ if(B[0].s>=5&&!B[2]&&R()<0.5)B[2]=B[0]; else B[1]=B[0]; B[0]=null;} B[0]=bt; score(n); bt.rbi+=n; txt=(G.infHit?'俊足！内野安打':'ヒット！')+(n?` ${n}点`:''); G.infHit=false; }
+ else {
+  bt.ab++;
+  const of=p&&/翼|中堅|中間/.test(p.nm);
+  if(of){ txt=`${pos}フライ`; out(1); if(B[2]&&G.outs<3&&R()<0.55){score(1);B[2]=null;txt+='（犠牲フライ）';bt.rbi++;} }
+  else if(B[0]&&G.outs<2&&R()<0.45){ out(2); B[0]=null; if(B[1]&&!B[2]){B[2]=B[1];B[1]=null;} txt=`${pos||'内野'}ゴロ ゲッツー！`; }
+  else { out(1); txt=`${pos||'内野'}ゴロ`; }
+ }
+ const tm=humanBats()&&G.lastTiming?`（${G.lastTiming}）`:'';
+ log(`${inningLabel()} ${bt.n}：${txt}${tm}`); if(k==='hr')say(txt,1.2);
+ G.landing={x:b.x,y:b.y,t:2.2,label:txt.replace(/（.*$/,'').replace(/ \d点.*$/,''),col:k==='hr'?'#ff4d4d':(k==='2b'||k==='3b')?'#ff8a2b':k==='hit'?'#f2c230':'#4f8fe0'};
+ nextBatter(); G.phase='result';G.timer=1.4; // 止まった場所が見えるように少し長く
+}
+function advance(n,bt){ const B=G.bases; let sc=0; for(let i=2;i>=0;i--){ if(B[i]){ if(i+n>=3)sc++; else B[i+n]=B[i]; B[i]=null; } } B[n-1]=bt; score(sc); }
+
+function afterResult(){
+ G.lastTiming=null;
+ const H=sum(G.score.home),A=sum(G.score.away);
+ if(!G.top&&G.inning===3&&H>A)return endGame();
+ if(G.outs>=3){
+  G.outs=0;G.b=0;G.s=0;G.bases=[null,null,null];
+  if(G.top){ if(G.inning===3&&H>A)return endGame(); G.top=false; }
+  else { if(G.inning===3)return endGame(); G.inning++;G.top=true; }
+  log(`―― ${inningLabel()} ――`); say(`チェンジ　${inningLabel()}　${earthBatting()?'攻撃':'守備'}`,1.4); G.timer=G.mode!=='auto'?2.0:0.6; announce();
+ } else G.timer=humanPitches()?0:(humanBats()?(G.needAnnounce?1.9:1.0):0.18); // 打つ番は「間」を取る
+ G.phase='ready';G.ball=null; G.swing=null; if(!G.cock)G.ck=0; if(G.needAnnounce&&!G.over){announce();} G.needAnnounce=false;
+ renderCtrl();
+}
+function endGame(){ G.over=true;G.phase='end'; renderCtrl(); renderResult(); }
+
+// ---------------- 入力 ----------------
+function humanThrow(){
+ if(!G||G.phase!=='ready'||!humanPitches())return;
+ if(netOn()){netThrow();return;}
+ const t=fld(); const mg=G.sel.magic&&t.magic>0;
+ if(t.pit.cands.length>1)t.pit.pt=t.pit.cands.includes(G.sel.ptype)?G.sel.ptype:t.pit.cands[0];
+ G.next=pitchParams(t.pit,G.sel.spd,G.sel.brk,G.sel.course,mg);
+ G.sel.magic=false;
+ G.phase='windup';G.timer=0.15;G.windT=0.15; renderCtrl();
+}
+function humanSwing(){ if(G&&humanBats()&&!G.bunt&&G.phase==='pitch')doSwing(); }
+const BAT_REST=0.75; // 構えていないときのバット（前に出ている）。0＝引き切った構え／1＝振り切り
+function cockStart(){ if(G&&!G.over&&humanBats()&&!G.bunt&&!G.buntOn&&!(G.phase==='pitch'&&G.swing))G.cock=true; }
+function cockRelease(){ if(!G||!G.cock)return; G.cock=false; humanSwing(); }
+
+// ---------------- 描画：野球盤を上から斜めに見る（打者席から見下ろす） ----------------
+let cv,ctx,W=360,H=480,DPR=1;
+function resize(){
+ if(!cv)return; DPR=window.devicePixelRatio||1;
+ const wrap=cv.parentElement; const side=Math.max(200,Math.floor(Math.min(wrap.clientWidth,wrap.clientHeight||wrap.clientWidth))); W=side; H=side; cv.style.width=side+'px';
+ cv.width=W*DPR;cv.height=H*DPR;cv.style.height=H+'px';ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+const D=160;
+function P(x,y){ const f=D/(y+D), k=W/71, K=2.72*H; return [W/2+x*k*f, H*0.9-K*(y/(y+D)), k*f]; }
+function poly(pts,fill,stroke,lw){ctx.beginPath();pts.forEach((p,i)=>{const q=P(p[0],p[1]);i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);});ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1;ctx.stroke();}}
+function arcPts(r,a0,a1,st=3){const o=[];for(let a=a0;a<=a1+0.01;a+=st){const t=a*Math.PI/180;o.push([Math.sin(t)*r,Math.cos(t)*r]);}return o;}
+function ell(x,y,rw,fill,stroke,lw,sq=0.5){const [sx,sy,s]=P(x,y);ctx.beginPath();ctx.ellipse(sx,sy,rw*s,rw*s*sq,0,0,7);if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1;ctx.stroke();}return [sx,sy,s];}
+
+function render(){
+ if(!G||!ctx)return;
+ // 机（木）
+ const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#3d2414');g.addColorStop(1,'#24150b');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+ // カメラ：投球の間は本塁〜投手に寄る（見極めやすく）、打ったら盤全体に引く
+ const near=['ready','windup','pitch'].includes(G.phase)||(G.phase==='result'&&!(G.ball&&G.ball.inplay));
+ const zt=near?TUNE.zoomCam:1; G.camZ=(G.camZ||1)+(zt-(G.camZ||1))*(near?0.35:0.18);
+ const z=G.camZ, fpt=P(0,4.2), t=(z-1)/(TUNE.zoomCam-1||1);
+ ctx.save(); ctx.translate(W/2,(fpt[1]*(1-t)+H*0.5*t)); ctx.scale(z,z); ctx.translate(-fpt[0],-fpt[1]);
+ // 盤の台（プラスチックの縁）
+ poly([[-52,-7],[52,-7],[52,69],[-52,69]],'#15572e','#0b3a1e',4);
+ poly([[-49,-5],[49,-5],[49,66],[-49,66]],'#1c6a38');
+ // HRスタンド
+ const M=mods(true), pw=M.t==='power';
+ poly([...arcPts(FENCE,-45,45),...arcPts(65.5,-45,45).reverse()],'#5a2a20');
+ poly([...arcPts(FENCE,-M.hrAng,M.hrAng),...arcPts(65.5,-M.hrAng,M.hrAng).reverse()],pw?`hsl(${(performance.now()/6)%360},90%,55%)`:'#b8342a');
+ { const [x,y,s]=P(0,64.2); ctx.fillStyle='#fff';ctx.font=`bold ${Math.round(s*(pw?3:2.4))}px sans-serif`;ctx.textAlign='center';ctx.fillText(pw?'HOME RUN ZONE 拡大！':'HOME RUN',x,y+s); }
+ // フェア地帯（成形の縞）
+ for(let r=60;r>2;r-=6) poly([[0,0],...arcPts(r,-45,45)],(r/6)%2?'#2f8a46':'#2a7f40');
+ // 内野の土
+ poly([[0,-1.5],[15.5,14.5],[0,31],[-15.5,14.5]],'#c49a62');
+ poly([[0,1.8],[11,13],[0,24],[-11,13]],'#2f8a46');
+ ell(0,MOUND_Y,1.8,'#c49a62');
+ // ファウルライン
+ ['l','r'].forEach(sd=>{const sx=sd==='l'?-1:1;poly([[0,0],[sx*42.4,42.4],[sx*42.7,42.1]],null,'#fff',2);});
+ // フェンス（白い立ち上がり）＋看板
+ const fp=arcPts(FENCE,-45,45,2).map(p=>P(p[0],p[1]));
+ ctx.beginPath();fp.forEach((q,i)=>i?ctx.lineTo(q[0],q[1]-q[2]*1.6):ctx.moveTo(q[0],q[1]-q[2]*1.6));for(let i=fp.length-1;i>=0;i--)ctx.lineTo(fp[i][0],fp[i][1]);ctx.closePath();ctx.fillStyle='#ece6d4';ctx.fill();
+ const SP=[['#ff5d00','看板A'],['#2c6fd6','看板B'],['#e8c33c','看板C'],['#d6336c','看板D'],['#33a06f','看板E']];
+ SP.forEach(([c,t],i)=>{const a=(-28+i*14)*Math.PI/180;const [x,y,s]=P(Math.sin(a)*FENCE,Math.cos(a)*FENCE);const w=s*9,h=s*1.5;ctx.fillStyle=c;ctx.fillRect(x-w/2,y-h-1,w,h);ctx.fillStyle='#fff';ctx.font=`bold ${Math.max(8,Math.round(h*0.7))}px sans-serif`;ctx.textAlign='center';ctx.fillText(t,x,y-h*0.25-1);});
+ // 穴（ポケット）とステッカーの文字
+ const col={out:'#2c62c8',hit:'#e9c53c','2b':'#f08a2b','3b':'#d33'},lab={out:'アウト',hit:'ヒット','2b':'2ベース','3b':'3ベース'};
+ for(const p of POCKETS){
+  const rr=p.k==='out'?M.outR:TUNE.rHit;
+  const [x,y,s]=ell(p.x,p.y,rr*1.12,col[p.k]);
+  ell(p.x,p.y+0.15,rr*0.8,'#0b1a12'); // 穴の暗がり
+  if(p.nm==='投手')continue; ctx.fillStyle=p.k==='hit'?'#3a2a00':'#fff';ctx.font=`bold ${Math.max(7,Math.round(s*(p.k==='hit'?1.05:1.15)))}px sans-serif`;ctx.textAlign='center';ctx.fillText(lab[p.k],x,y+rr*s*0.62+s*0.9);
+ }
+ if(M.t==='speed'){ const pts=arcPts(M.inf,-45,45,3).map(q=>P(q[0],q[1])); ctx.save();ctx.setLineDash([8,6]);ctx.strokeStyle='#7dff9a';ctx.lineWidth=3;ctx.beginPath();pts.forEach((q,i)=>i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));ctx.stroke();ctx.restore();
+   const [lx,ly,ls]=P(0,M.inf+1.5); ctx.fillStyle='#7dff9a';ctx.font=`bold ${Math.round(ls*1.3)}px sans-serif`;ctx.textAlign='center';ctx.fillText('ここより外で止まれば内野安打',lx,ly); }
+ if(M.t==='meet'){ const [lx,ly,ls]=P(0,38.5); ctx.fillStyle='#8fd3ff';ctx.font=`bold ${Math.round(ls*1.3)}px sans-serif`;ctx.textAlign='center';ctx.fillText('ミート打者：アウトの穴が小さい',lx,ly); }
+ // 塁
+ [[15.5,14.5],[0,31],[-15.5,14.5]].forEach(([x,y])=>ell(x,y,1.1,'#fff',null,0,0.55));
+ poly([[-ZONE,6.2],[ZONE,6.2],[ZONE,0.6],[-ZONE,0.6]],'rgba(255,255,255,.13)'); // ゾーンの帯（ここを通ればストライク）
+ [-1,1].forEach(sd=>poly([[sd*ZONE,6.2],[sd*ZONE+sd*0.12,6.2],[sd*ZONE+sd*0.12,0.6],[sd*ZONE,0.6]],'rgba(255,255,255,.55)'));
+ poly([[-ZONE,0.9],[ZONE,0.9],[ZONE,-0.5],[0,-2.4],[-ZONE,-0.5]],'#fff','#c9c2ad',2);
+ // 判定の溝：本塁を通った球が、そのまま「ボール｜ストライク｜ボール」の溝に落ちる（野球盤の判定）
+ { const E=ZONE+BR, X=ZONE+4.8, y0=-2.7, y1=-5.3, jd=G.judge&&G.judge.t>0?G.judge:null;
+   poly([[-X,y0],[X,y0],[X,y1],[-X,y1]],'#3a2614','#24170b',2);
+   const slot=(a,b2,k)=>{const lit=jd&&jd.slot===k&&((k==='S')||(jd.x<0)===(a<0));
+     poly([[a,y0-0.25],[b2,y0-0.25],[b2,y1+0.35],[a,y1+0.35]],k==='S'?(lit?'#ffd84a':'#8a6a1c'):(lit?'#5aa0ff':'#1d3f7a'));
+     const [tx,ty,ts]=P((a+b2)/2,(y0+y1)/2); ctx.fillStyle=lit?'#222':'#fff';ctx.font=`bold ${Math.max(7,Math.round(ts*(k==='S'?0.95:0.8)))}px sans-serif`;ctx.textAlign='center';ctx.fillText(k==='S'?'ストライク':'ボール',tx,ty+ts*0.35);};
+   slot(-X+0.3,-E,'B'); slot(-E,E,'S'); slot(E,X-0.3,'B');
+   // 仕切り（ここがゾーンの線＋球の半径。球が線をかすれば中に入る）
+   [-E,E].forEach(x=>poly([[x-0.1,0.9],[x+0.1,0.9],[x+0.1,y1],[x-0.1,y1]],'#f4efe0'));
+   if(jd&&jd.edge){const [ex,ey,es]=P(jd.x,-1.2);ctx.strokeStyle='#ffd84a';ctx.lineWidth=3;ctx.beginPath();ctx.arc(ex,ey-es*0.6,es*1.3,0,7);ctx.stroke();}
+ }
+ // 消える魔球のフタ
+ const vy=G.pitch?G.pitch.vanishY:2.8, open=G.ball&&G.ball.vanished&&!G.ball.inplay;
+ poly([[-1.3,vy-0.45],[1.3,vy-0.45],[1.3,vy+0.45],[-1.3,vy+0.45]],open?'#000':'#8a6a3e','#5a4020',1);
+ // 人形（奥から順に描く）
+ const D2=fld(), A2=bat();
+ const figs=[];
+ FIELDERS.forEach(([x,y],i)=>figs.push({x,y,im:D2.line[(i+1)%9].img,col:D2.col,num:D2.line[(i+1)%9].num}));
+ figs.push({x:0,y:13.0,im:D2.pit.img,col:D2.col,num:null,big:true,badge:(D2.pit.cands.length>1&&!['pitch','inplay','result'].includes(G.phase))?{ic:'？',col:'#e8a33d'}:PTYPE[D2.pit.pt]});
+ [[15.5,14.5],[0,31],[-15.5,14.5]].forEach(([x,y],i)=>{const r=G.bases[i];if(r)figs.push({x:x+1.4,y:y-0.6,im:r.img,col:A2.col,run:true,num:r.num,badge:BTYPE[r.bt]});});
+ figs.sort((a,b)=>b.y-a.y).forEach(f=>peg(f.x,f.y,f.im,f.col,f.num,f.run,false,f.badge));
+ // 打者の人形とバット（バネで回る板）
+ peg(-(ZONE+2.2),-0.6,curBatter().img,A2.col,curBatter().num,false,true,curBatter().rev?BTYPE[curBatter().bt]:{ic:'？',col:'#e8a33d'});
+ const p=batAngle(), a=(-160+p*200)*Math.PI/180, pv=[-(ZONE+0.6),0.2], L=ZONE*2+0.8;
+ const q0=P(pv[0],pv[1]),q1=P(pv[0]+Math.cos(a)*L,pv[1]+Math.sin(a)*L);
+ ctx.strokeStyle='#7a1d14';ctx.lineWidth=Math.max(5,q0[2]*1.0);ctx.lineCap='round';ctx.beginPath();ctx.moveTo(q0[0],q0[1]-q0[2]*0.4);ctx.lineTo(q1[0],q1[1]-q1[2]*0.4);ctx.stroke();
+ ctx.strokeStyle='#e8453a';ctx.lineWidth=Math.max(3,q0[2]*0.6);ctx.beginPath();ctx.moveTo(q0[0],q0[1]-q0[2]*0.5);ctx.lineTo(q1[0],q1[1]-q1[2]*0.5);ctx.stroke();
+ // ボール（鉄球）
+ const b=G.ball;
+ if(b&&!(b.vanished&&!b.inplay)){
+  const tcol=!b.inplay&&curPitcher().pt==='fast'?'255,80,50':!b.inplay&&curPitcher().pt==='curve'?'190,110,255':'255,255,255';
+  b.trail.forEach((t,i)=>{const [x,y,s]=P(t[0],t[1]);ctx.fillStyle=`rgba(${tcol},${tcol==='255,255,255'?0.07*i:Math.min(0.9,0.12*i)})`;ctx.beginPath();ctx.arc(x,y-s*0.5,s*(tcol==='255,255,255'?0.55:0.7),0,7);ctx.fill();});
+  {const [x,y,s]=P(b.x+(b.inplay?0:(b.wob||0)),b.y); ctx.fillStyle='rgba(0,0,0,.35)';ctx.beginPath();ctx.ellipse(x,y,s*0.8,s*0.35,0,0,7);ctx.fill();
+   const r=Math.max(3.5,s*0.75),gx=ctx.createRadialGradient(x-r*0.35,y-r*0.9-r*0.35,r*0.1,x,y-r*0.9,r);gx.addColorStop(0,'#ffffff');gx.addColorStop(0.35,'#c9ced6');gx.addColorStop(1,'#5a606a');
+   ctx.fillStyle=gx;ctx.beginPath();ctx.arc(x,y-r*0.9,r,0,7);ctx.fill();}
+ }
+ // 投球レバー：振りかぶり（引く）→ 投げた（戻る）。自分が打つ番ははっきり見せる
+ if(['ready','windup','pitch'].includes(G.phase)&&!(G.phase==='pitch'&&G.t>0.25)){
+   const pr=G.phase==='windup'&&G.windT?clamp(1-G.timer/G.windT,0,1):G.phase==='pitch'?0:0;
+   const pull=G.phase==='windup'?Math.min(1,pr*1.3):0;
+   const a=P(0.9,MOUND_Y+0.8), b2=P(0.9+pull*0.6,MOUND_Y+2.2+pull*4.5);
+   ctx.strokeStyle='#5a1a14';ctx.lineWidth=Math.max(4,a[2]*0.9);ctx.lineCap='round';ctx.beginPath();ctx.moveTo(a[0],a[1]-a[2]*0.4);ctx.lineTo(b2[0],b2[1]-b2[2]*0.4);ctx.stroke();
+   ctx.fillStyle='#e8453a';ctx.beginPath();ctx.arc(b2[0],b2[1]-b2[2]*0.5,Math.max(5,b2[2]*1.1),0,7);ctx.fill();
+   G._cue=humanBats()?(G.phase==='ready'?(G.cock?(netOn()&&!NET.pending?'相手の投球を待っています':'セット'):'バットを引いて構えて！'):G.phase==='windup'?(pr<0.55?'振りかぶって…':'投げる！'):'投げた！'):null;
+ }
+ if(G.landing&&G.landing.t>0){ const L=G.landing,[lx,ly,ls]=P(L.x,L.y),ph=(performance.now()/350)%1;
+   for(const k of [0,0.5]){const q=(ph+k)%1; ctx.strokeStyle=L.col;ctx.globalAlpha=1-q;ctx.lineWidth=Math.max(2,ls*0.5);ctx.beginPath();ctx.ellipse(lx,ly,ls*(2.5+q*7),ls*(1.2+q*3.5),0,0,7);ctx.stroke();}
+   ctx.globalAlpha=1; const fs=Math.max(16,Math.round(ls*3.4)); ctx.font=`bold ${fs}px sans-serif`;ctx.textAlign='center'; const tw=ctx.measureText(L.label).width+16, ty=ly-ls*4-fs;
+   ctx.fillStyle=L.col;ctx.beginPath();ctx.roundRect(lx-tw/2,ty,tw,fs*1.5,8);ctx.fill(); ctx.beginPath();ctx.moveTo(lx-6,ty+fs*1.5);ctx.lineTo(lx+6,ty+fs*1.5);ctx.lineTo(lx,ly-ls*1.2);ctx.closePath();ctx.fill();
+   ctx.fillStyle='#fff';ctx.fillText(L.label,lx,ty+fs*1.12); }
+ if(open){const [x,y]=P(0,vy);ctx.fillStyle='#ffef7a';ctx.font=`bold ${Math.round(W/18/z)}px sans-serif`;ctx.textAlign='center';ctx.fillText('消えた！',x,y-W/9/z);}
+ ctx.restore();
+ if(G._cue&&['ready','windup','pitch'].includes(G.phase)&&!(G.phase==='pitch'&&G.t>0.25)&&!(G.banner&&G.banner.t>0)){ const cue=G._cue, fs=Math.round(W/14);
+   ctx.font=`bold ${fs}px sans-serif`;ctx.textAlign='center'; const tw=ctx.measureText(cue).width+fs; const cy=H*0.8;
+   ctx.fillStyle=G.phase==='pitch'?'#d8332a':G.phase==='windup'?'#c77a10':'rgba(0,0,0,.6)';ctx.beginPath();ctx.roundRect(W/2-tw/2,cy,tw,fs*1.5,fs*0.4);ctx.fill();
+   ctx.fillStyle='#fff';ctx.fillText(cue,W/2,cy+fs*1.1); }
+ G._cue=null;
+ // 打球の瞬間のフラッシュ
+ if(G.flash>0){ctx.fillStyle=`rgba(255,255,255,${G.flash*2})`;ctx.fillRect(0,0,W,H);}
+ // 文字
+ if(G.msgT>0&&G.msg){ctx.save();ctx.font=`bold ${Math.round(W/15)}px sans-serif`;ctx.textAlign='center';const w=ctx.measureText(G.msg).width+30;
+  ctx.fillStyle='#fff8e1';ctx.strokeStyle='#d8332a';ctx.lineWidth=4;ctx.beginPath();ctx.roundRect(W/2-w/2,H*0.36,w,W/9,12);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#d8332a';ctx.fillText(G.msg,W/2,H*0.36+W/13);ctx.restore();}
+ if(G.banner&&G.banner.t>0){ const bn=G.banner,B=bn.rev?BTYPE[bn.bt]:{col:'#e8a33d',ic:'？',lab:bn.cands.map(c=>BTYPE[c].lab).join('？')+'？',txt:'打つまで秘密'},a=Math.min(1,bn.t*2); ctx.save();ctx.globalAlpha=a;
+   const h=W/5.2, y=H*0.58; ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillRect(0,y,W,h); ctx.fillStyle=B.col;ctx.fillRect(0,y,W,6);ctx.fillRect(0,y+h-6,W,6);
+   ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font=`bold ${Math.round(W/16)}px sans-serif`;ctx.fillText(bn.top,W/2,y+h*0.45);
+   ctx.fillStyle=B.col==='#888'?'#ddd':B.col;ctx.font=`bold ${Math.round(W/22)}px sans-serif`;ctx.fillText(B.ic?`【${B.lab}】${B.txt}`:'【ふつう】',W/2,y+h*0.8); ctx.restore(); }
+ if(G.lastTiming&&G.phase==='result'&&humanBats()){ctx.fillStyle='#fff';ctx.font=`bold ${Math.round(W/22)}px sans-serif`;ctx.textAlign='center';ctx.fillText(G.lastTiming,W/2,H*0.33);}
+ if(G.mode==='auto'){ctx.fillStyle='rgba(0,0,0,.5)';ctx.beginPath();ctx.roundRect(10,10,W*0.36,W/16,10);ctx.fill();ctx.fillStyle='#9fd0ff';ctx.font=`bold ${Math.round(W/34)}px sans-serif`;ctx.textAlign='left';ctx.fillText(`AUTO ×${G.spd}`,20,10+W/23);}
+}
+// 人形＝丸い台座の上にステッカー（顔）を貼った板が立っている
+function peg(x,y,imKey,col,num,run,batter,badge){
+ const [sx,sy,s]=P(x,y); const r=s*(batter?1.9:1.55);
+ ctx.fillStyle='rgba(0,0,0,.35)';ctx.beginPath();ctx.ellipse(sx+r*0.2,sy,r*1.05,r*0.42,0,0,7);ctx.fill();
+ ctx.fillStyle=col;ctx.beginPath();ctx.ellipse(sx,sy-r*0.08,r*0.95,r*0.38,0,0,7);ctx.fill();
+ ctx.fillStyle='#0003';ctx.beginPath();ctx.ellipse(sx,sy+r*0.02,r*0.95,r*0.32,0,0,Math.PI);ctx.fill();
+ const cy=sy-r*1.25;
+ ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(sx,cy,r*1.05,0,7);ctx.fill();
+ const glyph=imKey&&imKey.startsWith('g:')?imKey.slice(2):null; const im=glyph?null:img(imKey);
+ ctx.save();ctx.beginPath();ctx.arc(sx,cy,r*0.92,0,7);ctx.clip();
+ if(glyph){ctx.fillStyle=col;ctx.fill();ctx.fillStyle='#fff';ctx.font=`bold ${Math.round(r*1.1)}px sans-serif`;ctx.textAlign='center';ctx.fillText(glyph,sx,cy+r*0.38);}
+ else if(imgOk(im)){const m=Math.min(im.naturalWidth,im.naturalHeight);ctx.drawImage(im,(im.naturalWidth-m)/2,0,m,m,sx-r*0.92,cy-r*0.92,r*1.84,r*1.84);}else{ctx.fillStyle=col;ctx.fill();}
+ ctx.restore();
+ ctx.strokeStyle=col;ctx.lineWidth=Math.max(2,r*0.16);ctx.beginPath();ctx.arc(sx,cy,r*1.0,0,7);ctx.stroke();
+ if(num){ctx.fillStyle=col;ctx.beginPath();ctx.arc(sx+r*0.75,cy+r*0.7,r*0.42,0,7);ctx.fill();ctx.fillStyle='#fff';ctx.font=`bold ${Math.round(r*0.55)}px sans-serif`;ctx.textAlign='center';ctx.fillText(num,sx+r*0.75,cy+r*0.9);}
+ if(badge&&badge.ic){ctx.fillStyle=badge.col;ctx.beginPath();ctx.arc(sx-r*0.8,cy-r*0.75,r*0.48,0,7);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=Math.max(1,r*0.08);ctx.stroke();ctx.fillStyle='#fff';ctx.font=`bold ${Math.round(r*0.58)}px sans-serif`;ctx.textAlign='center';ctx.fillText(badge.ic,sx-r*0.8,cy-r*0.55);}
+ if(run){ctx.fillStyle='#ffef7a';ctx.font=`bold ${Math.round(r*0.6)}px sans-serif`;ctx.textAlign='center';ctx.fillText('走',sx-r*0.95,cy-r*0.7);}
+}
+function batAngle(){ if(G.bunt&&G.phase==='pitch')return 0.6; const rest=BAT_REST*(1-(G.ck||0)); if(!G.swing)return rest; const p0=G.swing.p0; return p0+(1-p0)*clamp((G.t-G.swing.t)/0.075,0,1); }
+
+// ---------------- 画面（DOM） ----------------
+const app=document.getElementById('app');
+let selSlot=-1; // 打順の入れ替えで選んでいるコマ
+function stickerHTML(im,col,size){
+ if(im.startsWith('g:'))return `<div style="width:${size};aspect-ratio:1;border-radius:50%;background:${col};border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-weight:bold;color:#fff;font-size:calc(${size} * .45)">${im.slice(2)}</div>`;
+ return `<img src="img/${im}.jpg" alt="" style="width:${size};aspect-ratio:1;border-radius:50%;object-fit:cover;border:3px solid #fff;background:#fff">`;
+}
+function badgeHTML(T){return T.ic?`<span style="display:inline-block;background:${T.col};color:#fff;border-radius:10px;padding:0 6px;font-size:11px;font-weight:bold">${T.ic} ${T.lab}</span>`:`<span style="color:#aaa;font-size:11px">ふつう</span>`;}
+function menu(){
+ G=null;window.G=null; app.className=''; document.body.classList.remove('playing');
+ const T=TEAMS[MYTEAM];
+ if(OPPKEY===MYTEAM)OPPKEY=MYTEAM==='mlb'?'taka':'mlb';
+ const slots=ORDER.map((i,k)=>{const [n,t,im]=T.line[i];return `<div class="slot ${selSlot===k?'sel':''}" data-slot="${k}">${stickerHTML(im,T.col,'100%')}<b>${k+1}番</b>${n}<br>${badgeHTML(BTYPE[t])}${(CAND2[MYTEAM]||[])[i]?'<br>or '+badgeHTML(BTYPE[CAND2[MYTEAM][i]]):''}</div>`;}).join('');
+ app.innerHTML=`
+ <h1>⚾ 野球盤甲子園（モックv4）</h1>
+ <div class="sub">リアルの野球盤を、指で動かす。<b>打者が替わると盤面が変わり、投手が替わると球が変わる。</b></div>
+ <div class="lab">自分のチーム</div>
+ <div class="opp" style="grid-template-columns:1fr 1fr">${['mlb','taka'].map(k=>{const t=TEAMS[k];return `<div class="card ${MYTEAM===k?'':'used'}" data-team="${k}" style="border-color:${MYTEAM===k?t.col:''}">${stickerHTML(t.line[2][2],t.col,'56px')}<div class="nm" style="color:${t.col}">${t.name}</div>${t.desc}</div>`;}).join('')}</div>
+ <div class="lab">特徴の見え方（90年代のゲームのように、ざっくり）</div>
+ <div class="sub" style="line-height:1.9"><b>「or」の選手は、打席・1球ごとにどちらかが出る。相手には出るまで分からない。</b><br>${['power','meet','speed'].map(k=>badgeHTML(BTYPE[k])+' '+BTYPE[k].txt).join('<br>')}<br>${['fast','curve','magic'].map(k=>badgeHTML(PTYPE[k])+' '+PTYPE[k].txt).join('<br>')}</div>
+ <div class="lab">打順（2人をタップで入れ替え）</div>
+ <div class="order">${slots}</div>
+ <div class="lab">先発投手</div>
+ <div class="opp" style="grid-template-columns:1fr 1fr">${T.pit.map((p,i)=>`<div class="card ${PIT===i?'':'used'}" data-pit="${i}">${stickerHTML(p[2],T.col,'48px')}<div class="nm">${p[0]}</div>${((PCAND[MYTEAM]||[])[i]||[p[1]]).map(c=>badgeHTML(PTYPE[c])).join(' or ')}</div>`).join('')}</div>
+ <div class="lab">対戦相手</div>
+ <div class="opp">${Object.values(TEAMS).filter(t=>t.key!==MYTEAM).map(o=>`<div class="card ${OPPKEY===o.key?'':'used'}" data-opp="${o.key}">${stickerHTML(o.key==='mlb'||o.key==='taka'?o.line[2][2]:o.key,o.col,'48px')}<div class="nm" style="color:${o.col}">${o.name}</div>${o.desc}<br>${badgeHTML(PTYPE[o.pit[0][1]])}</div>`).join('')}</div>
+ <div class="lab">先攻・後攻</div>
+ <div class="opp" style="grid-template-columns:1fr 1fr">${[["away","先攻（表）","先に攻撃する"],["home","後攻（裏）","守りから入る。サヨナラあり"]].map(([k,a,b])=>`<div class="card ${MYSIDE===k?'':'used'}" data-side="${k}"><div class="nm">${a}</div>${b}</div>`).join('')}</div>
+ <div class="go"><button class="auto" id="goAuto">▶ オートで試合<br><small>打順だけで勝負</small></button><button class="man" id="goMan">✋ 自分で操作<br><small>レバーで投げ、ボタンで打つ</small></button></div>
+ <div class="go" style="grid-template-columns:1fr"><button class="man" id="goNet" style="background:#2f6fd6">🌐 2人で対戦<br><small>離れた相手と、合言葉で</small></button></div>`;
+ app.querySelectorAll('[data-team]').forEach(el=>el.onclick=()=>{MYTEAM=el.dataset.team;ORDER=[0,1,2,3,4,5,6,7,8];PIT=0;selSlot=-1;saveLineup();menu();});
+ app.querySelectorAll('[data-slot]').forEach(el=>el.onclick=()=>{const k=+el.dataset.slot; if(selSlot>=0&&selSlot!==k){const t=ORDER[selSlot];ORDER[selSlot]=ORDER[k];ORDER[k]=t;selSlot=-1;saveLineup();} else selSlot=(selSlot===k?-1:k); menu();});
+ app.querySelectorAll('[data-pit]').forEach(el=>el.onclick=()=>{PIT=+el.dataset.pit;saveLineup();menu();});
+ app.querySelectorAll('[data-opp]').forEach(el=>el.onclick=()=>{OPPKEY=el.dataset.opp;saveLineup();menu();});
+ app.querySelectorAll('[data-side]').forEach(el=>el.onclick=()=>{MYSIDE=el.dataset.side;menu();});
+ document.getElementById('goAuto').onclick=()=>start('auto');
+ document.getElementById('goMan').onclick=()=>start('manual');
+ document.getElementById('goNet').onclick=()=>{saveLineup();netLobby();};
+}
+function start(mode){
+ app.className="game"; document.body.classList.add("playing");
+ app.innerHTML=`<div id="sb"></div><div id="boardwrap"><canvas id="board" aria-label="野球盤の盤面"></canvas></div><div id="ctrl"></div><div id="log"></div><div id="resbox"></div>`;
+ cv=document.getElementById('board');ctx=cv.getContext('2d');resize();
+ newGame(mode);
+ cv.addEventListener('pointerdown',e=>{e.preventDefault();cockStart();});
+ window.addEventListener('pointerup',()=>cockRelease()); window.addEventListener('pointercancel',()=>cockRelease());
+ renderCtrl();
+}
+window.start=start; window.menu=menu;
+document.addEventListener('keyup',e=>{if(e.code==='Space'){e.preventDefault();cockRelease();}});
+document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();if(!e.repeat)cockStart();} if(e.code==='Enter')humanThrow();});
+window.addEventListener('resize',resize);
+
+function renderSB(){
+ const sb=document.getElementById('sb'); if(!sb||!G)return;
+ const o=G.T.away,e=G.T.home;
+ const cell=(k,i)=>{const played=i<G.inning-1||(i===G.inning-1&&(k==='away'||!G.top));return played?G.score[k][i]:'';};
+ sb.innerHTML=`<div class="ls"><div class="h tm"></div><div class="h">1</div><div class="h">2</div><div class="h">3</div><div class="h">計</div>
+  <div class="tm" style="color:${o.col}">${o.short}</div>${[0,1,2].map(i=>`<div>${cell('away',i)}</div>`).join('')}<div><b>${sum(G.score.away)}</b></div>
+  <div class="tm" style="color:${e.col}">${e.short}</div>${[0,1,2].map(i=>`<div>${cell('home',i)}</div>`).join('')}<div><b>${sum(G.score.home)}</b></div></div>
+  <div class="cnt"><b>B</b><span class="dots">${[0,1,2].map(i=>`<span class="${i<G.b?'g':''}"></span>`).join('')}</span><b>S</b><span class="dots">${[0,1].map(i=>`<span class="${i<G.s?'y':''}"></span>`).join('')}</span><b>O</b><span class="dots">${[0,1].map(i=>`<span class="${i<G.outs?'r':''}"></span>`).join('')}</span></div>
+  <div class="now">${inningLabel()}　魔球 残${fld().magic}</div>
+  <div style="flex-basis:100%;display:flex;flex-direction:column;gap:4px">${(()=>{const b=curBatter(),B=BTYPE[b.bt],p=curPitcher(),Pt=PTYPE[p.pt];const tg=(c,t)=>`<div style="background:${c};color:#fff;border-radius:8px;padding:3px 8px;font-weight:bold;font-size:13px">${t}</div>`;return (b.rev?tg(B.col,`打 ${b.n}：${B.lab}${B.txt?'（'+B.txt+'）':''}`):tg('#c77a10',`打 ${b.n}：${b.cands.map(c=>BTYPE[c].lab).join('？ ')}？（打つまで分からない）`))+((p.cands.length>1&&!['pitch','inplay','result'].includes(G.phase))?tg('#c77a10',`投 ${p.n}：${p.cands.map(c=>PTYPE[c].lab).join('？ ')}？（投げるまで分からない）`):tg(Pt.col,`投 ${p.n}：${Pt.lab}${Pt.txt?'（'+Pt.txt+'）':''}`));})()}</div>`;
+ const lg=document.getElementById('log'); if(lg)lg.innerHTML=G.log.slice(0,10).map(s=>`<div>${s}</div>`).join('');
+}
+function renderCtrl(){
+ const c=document.getElementById('ctrl'); if(!c||!G)return;
+ if(G.over){c.innerHTML='';resize();return;}
+ const back=`<button id="back" class="mini">メニュー</button>`;
+ let h='';
+ if(G.mode==='auto'){
+  h=`<div class="row"><button id="sp" class="on">速さ ×${G.spd}</button><button id="skip">結果までとばす</button>${back}</div>`;
+ } else if(earthBatting()){
+  h=`<div class="batrow"><button class="bigbat" id="sw">バット<small style="display:block;font-size:12px;font-weight:normal;line-height:1.2">押して構える・離して打つ</small></button><button class="toy yel ${G.buntOn?'on':''}" id="bn">${G.buntOn?'バント中':'バント'}</button>${back}</div>`;
+ } else {
+  const t=fld(); const kn=(name,opts,cur,key)=>`<div class="ctlcol"><div class="lab">${name}</div><div class="knob">${opts.map(([v,l])=>`<button data-k="${key}" data-v="${v}" class="${cur===v?'on':''}">${l}</button>`).join('')}</div></div>`;
+  h=`<div class="pgrid">${kn('速さ',[[0,'遅'],[1,'中'],[2,'速']],G.sel.spd,'spd')}<button class="toy blue ${G.sel.magic?'on':''}" id="mg" ${t.magic<=0?'disabled':''}>魔球<br>残${t.magic}</button>
+   ${t.pit.cands.length>1?`<div class="span2">${kn('球の特徴（相手には投げるまで分からない）',t.pit.cands.map(c=>[c,PTYPE[c].lab]),G.sel.ptype||t.pit.cands[0],'ptype')}</div>`:''}
+   <div class="span2">${kn('変化（磁石）',[[-2,'←←'],[-1,'←'],[0,'なし'],[1,'→'],[2,'→→']],G.sel.brk,'brk')}</div>
+   <div class="span2">${kn('コース（選んだコースをもう一度押すと投げる／外の2つはボール球）',[[0,'◀◀'],[1,'左'],[2,'中'],[3,'右'],[4,'▶▶']],G.sel.course,'course')}</div>
+   <button class="throw" id="th" ${G.phase!=='ready'||(netOn()&&NET.waiting)?'disabled':''}>${netOn()&&NET.waiting?'相手が打つのを待っています':'投げる（レバー）'}</button>${back}</div>`;
+ }
+ c.innerHTML=h;
+ const on=(id,fn)=>{const el=document.getElementById(id);if(el)el.onclick=fn;};
+ { const sw=document.getElementById('sw'); if(sw){ sw.onpointerdown=e=>{e.preventDefault();cockStart();}; sw.onclick=e=>e.preventDefault(); } }
+ on('bn',()=>{G.buntOn=!G.buntOn;renderCtrl();});
+ on('th',()=>humanThrow());
+ on('mg',()=>{G.sel.magic=!G.sel.magic;renderCtrl();});
+ on('back',()=>{if(netOn())netLeave();menu();});
+ on('sp',()=>{G.spd=G.spd===2.5?1:G.spd===1?5:2.5;renderCtrl();});
+ on('skip',()=>{let k=0;while(G&&!G.over&&k<400000){step(0.02);k++;} renderSB();});
+ c.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{const v=b.dataset.v,val=isNaN(+v)?v:+v; if(b.dataset.k==='course'&&G.sel.course===val&&G.phase==='ready'){humanThrow();return;} G.sel[b.dataset.k]=val;renderCtrl();});
+ resize();
+}
+function renderResult(){
+ const box=document.getElementById('resbox'); if(!box)return;
+ const H=sum(G.score[G.mine]),A=sum(G.score[G.mine==='home'?'away':'home']),win=H>A,draw=H===A,st=G.st;
+ const pts=Math.max(0,(H-A)*100+H*30+(win?300:draw?100:0)+(G.mode==='manual'?st.just*15+st.magicHeld*20+st.K*10+st.eyeOK*15-st.eyeNG*10:0));
+ const dummy=[['吉田（川口市）',1180],['加藤（豊中市）',990],['佐藤（福井市）',870],['吉田（名古屋市）',720],['鈴木（品川区）',560]];
+ const all=[...dummy,[`あなた（${myT().short}）`,pts,true]].sort((a,b)=>b[1]-a[1]);
+ const line=myT().line;
+ const mvp=line.slice().sort((a,b)=>(b.rbi*2+b.h)-(a.rbi*2+a.h))[0];
+ box.innerHTML=`<div class="res"><h2>${win?'🏆 勝利！':draw?'引き分け':'敗戦…'}　${myT().short} ${H} − ${A} ${opT().short}</h2>
+ <div>MVP：${mvp.n}（${mvp.h}安打・${mvp.rbi}打点）</div>
+ <div class="lab">${myT().name}の打撃成績</div>
+ <div class="box"><div class="h">選手</div><div class="h">打数</div><div class="h">安打</div>${line.map(b=>`<div>${b.n}</div><div>${b.ab}</div><div>${b.h}</div>`).join('')}</div>
+ ${G.mode==='manual'?`<div class="lab">あなたの手で変わったこと</div>見極め：ボール球を見送った ${st.eyeOK}回／ボール球に手を出した・ストライクを見逃した ${st.eyeNG}回<br>ジャスト ${st.just}回／スイング${st.sw}回・魔球の見極め ${st.magicHeld}／${st.magicSeen}・奪三振 ${st.K}`:''}
+ <div style="margin-top:8px"><b>予選スコア ${pts} 点</b>（通過ライン 600 点）→ ${pts>=600?'予選通過！':'今回は予選敗退'}</div>
+ <div class="lab">東京ブロック 暫定ランキング（ダミー）</div>
+ <div class="rk">${all.map((r,i)=>`<div class="${r[2]?'me':''}">${i+1}</div><div class="${r[2]?'me':''}">${r[0]}</div><div class="${r[2]?'me':''}" style="text-align:right">${r[1]}</div>`).join('')}</div>
+ <div class="row" style="margin-top:10px"><button id="again" style="flex:1">もう一試合</button><button id="tomenu">ラインナップを変える</button></div></div>`;
+ document.getElementById('again').onclick=()=>{if(G.mode==='net'){netLeave();netLobby();}else start(G.mode);};
+ document.getElementById('tomenu').onclick=()=>menu();
+}
+
+// ---------------- 対戦（離れた2人で遊ぶ） ----------------
+// 打つ側の端末が試合を進める（打つタイミングは打つ人の端末の中で判定するので、通信の遅れで打てなくならない）。
+// 投げる側は「球の種類とコース」を送るだけ。打つ側の画面の様子は presence で毎フレーム送られ、投げる側はそれを映す。
+// room の emit は権限が要るので使わず、各自の presence（自分の状態）だけでやり取りする。
+const NET={room:null,lobby:null,code:'',role:'',peer:null,cfg:null,oppCfg:null,pseq:0,used:0,lastHk:-1,frame:0,status:''};
+window.NET=NET;
+const netOn=()=>G&&G.mode==='net';
+const hkOf=()=>G.inning*2+(G.top?0:1);
+const sideKey=()=>G.top?'away':'home';
+async function netWhyNot(){
+ let w=window.claude&&window.claude.use?'あり':'なし', ps='?';
+ try{ const pm=w==='あり'?await window.claude.use('permissions'):null; ps=pm?await pm.state('room'):'取得不可'; }catch(e){ ps='エラー'; }
+ return `（診断：claude=${w}・room=${ps}・${window.top===window?'単独ページ':'枠の中'}）`;
+}
+async function netRoomApi(){
+ if(NET.lobby)return NET.lobby;
+ if(window.YKB_P2P){ NET.lobby=window.YKB_P2P; return NET.lobby; } // claude.ai の外の版
+ try{ if(!window.claude||!window.claude.use)return null; NET.lobby=await window.claude.use('room'); }catch(e){ NET.lobby=null; }
+ return NET.lobby;
+}
+function netCode(){const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<4;i++)s+=a[Math.floor(Math.random()*a.length)];return s;}
+function myCfg(){return {team:MYTEAM,order:ORDER.slice(),pit:PIT};}
+function netLobby(){
+ G=null;window.G=null; app.className=''; document.body.classList.remove('playing');
+ app.innerHTML=`<h1>🌐 対戦（2人で遊ぶ）</h1>
+ <div class="sub">それぞれのスマホやパソコンで、このページを開いてください（サインインは要りません）。<br>片方が部屋を作り、もう片方が合言葉を入れます。チーム・打順・先発投手は、メニューで選んだものを使います。</div>
+ <div class="lab">部屋を作る（先攻・後攻はメニューで選んだもの）</div>
+ <div class="row"><button id="mk" style="flex:1">部屋を作る</button></div>
+ <div class="lab">合言葉で入る</div>
+ <div class="row"><input id="cd" maxlength="4" placeholder="合言葉4文字" style="flex:1;font-size:20px;padding:8px;border-radius:10px;border:2px solid #0004;text-transform:uppercase"><button id="jn">入る</button></div>
+ <div id="nst" class="sub" style="margin-top:10px;font-weight:bold"></div>
+ <div class="row" style="margin-top:12px"><button id="nback" class="mini">メニューへ戻る</button></div>`;
+ const st=t=>{NET.status=t;const el=document.getElementById('nst');if(el)el.textContent=t;};
+ document.getElementById('nback').onclick=()=>{netLeave();menu();};
+ document.getElementById('mk').onclick=async()=>{ const r=await netRoomApi(); if(!r){st('つなぐ仕組みを読み込めませんでした。ページを読み込み直してください');return;} NET.code=netCode(); NET.role='host'; st('部屋を作っています…'); await netJoin(st); };
+ document.getElementById('jn').onclick=async()=>{ const v=(document.getElementById('cd').value||'').toUpperCase().replace(/[^A-Z0-9]/g,''); if(v.length!==4){st('合言葉は4文字です');return;} const r=await netRoomApi(); if(!r){st('つなぐ仕組みを読み込めませんでした。ページを読み込み直してください');return;} NET.code=v; NET.role='guest'; st('部屋に入っています…'); await netJoin(st); };
+}
+async function netJoin(st){
+ try{ NET.room=await NET.lobby.join('ykb-'+NET.code.toLowerCase()); }catch(e){ st('部屋に入れませんでした（'+(e&&e.code||'error')+'）'); NET.room=null; return; }
+ NET.cfg=myCfg(); NET.oppCfg=null; NET.peer=null; NET.pseq=0; NET.used=0; NET.lastHk=-1;
+ const me={r:NET.role,cfg:NET.cfg}; if(NET.role==='host')me.side=MYSIDE;
+ await NET.room.presence(me);
+ st(NET.role==='host'?`合言葉は「${NET.code}」。相手に伝えて、入ってくるのを待っています…`:`「${NET.code}」の部屋で、相手を待っています…`);
+ NET.base=NET.status;
+ const diag=()=>{ if(G)return; const ps=NET.room.peers(); const el=document.getElementById('nst'); if(el)el.textContent=NET.base+`（接続:${NET.room.connected()?'○':'×'}・部屋に${ps.length}人・相手の設定:${ps.filter(p=>!p.sameTab&&p.presence&&p.presence.r).map(p=>p.presence.r).join(',')||'なし'}）`; };
+ NET.room.onPeers(ch=>{ diag(); netOnPeers(ch.peers); }, e=>st('部屋の接続が切れました（'+e.code+'）'));
+ NET.room.onConnection(()=>diag(), e=>st('部屋に接続できません（'+e.code+'）'));
+}
+function netOnPeers(peers){
+ const opp=peers.find(p=>!p.sameTab&&p.presence&&p.presence.r&&p.presence.r!==NET.role);
+ if(!opp){ if(G&&netOn()&&NET.peer&&!G.over){ say('相手がいなくなりました',2.0); } return; }
+ const pr=opp.presence;
+ if(!G){ // まだ試合前：相手の設定がそろったら始める
+  if(!pr.cfg||!TEAMS[pr.cfg.team])return;
+  NET.peer=opp.peer; NET.oppCfg=pr.cfg;
+  if(NET.role==='guest'&&pr.side)MYSIDE=pr.side==='home'?'away':'home';
+  if(NET.role==='host'||pr.side)netStart();
+  return;
+ }
+ if(opp.peer!==NET.peer)return;
+ if(pr.s)netApply(pr.s);
+ if(pr.p&&pr.p.seq>NET.used)NET.pending=pr.p; // 相手が投げた球（打つ側が使う）
+}
+function mkTeamX(key,ord,pitI,mine){
+ const keepO=ORDER,keepP=PIT; ORDER=ord; PIT=pitI; const t=mkTeam(key,true); ORDER=keepO; PIT=keepP;
+ if(!mine)t.line.forEach((b,k)=>b.num=k+1);
+ return t;
+}
+function netStart(){
+ start('net');
+ const mine=mkTeamX(NET.cfg.team,NET.cfg.order,NET.cfg.pit,true), opp=mkTeamX(NET.oppCfg.team,NET.oppCfg.order,NET.oppCfg.pit,false);
+ G.T=MYSIDE==='home'?{away:opp,home:mine}:{away:mine,home:opp}; G.mine=MYSIDE;
+ G.log=[]; log(`対戦プレイボール！ ${G.T.away.name} vs ${G.T.home.name}`); announce();
+ say('プレイボール！',1.8); G.timer=humanBats()?2.6:1.6;
+ renderCtrl();
+}
+function netLeave(){ try{ if(NET.room)NET.room.leave(); }catch(e){} NET.room=null; NET.peer=null; NET.pending=null; }
+// 打つ側：いまの盤面を相手へ送る
+function netSnap(){
+ const B=bat(),F=fld();
+ const bi=r=>r?B.line.indexOf(r):-1;
+ const b=G.ball;
+ const cb=curBatter();
+ return {hk:hkOf(),f:++NET.frame,ph:G.phase,t:+G.t.toFixed(3),inn:G.inning,top:G.top,o:G.outs,b:G.b,s:G.s,bs:G.bases.map(bi),
+  sc:{a:G.score.away,h:G.score.home},ix:{a:G.T.away.idx,h:G.T.home.idx},mg:{a:G.T.away.magic,h:G.T.home.magic},sta:{a:+G.T.away.pit.sta.toFixed(3),h:+G.T.home.pit.sta.toFixed(3)},
+  bt:cb.bt,rev:cb.rev,pt:F.pit.pt,
+  ball:b?{x:+b.x.toFixed(2),y:+b.y.toFixed(2),ip:b.inplay?1:0,vn:b.vanished?1:0,w:+(b.wob||0).toFixed(2),f:b.foul?1:0}:null,
+  pty:G.pitch?G.pitch.type:null,sw:G.swing?{t:+G.swing.t.toFixed(3),p0:+G.swing.p0.toFixed(2)}:null,ck:+(G.ck||0).toFixed(2),bu:G.bunt?1:0,
+  msg:G.msgT>0?G.msg:'',mt:+Math.max(0,G.msgT).toFixed(2),bn:G.banner&&G.banner.t>0?{t:+G.banner.t.toFixed(2),top:G.banner.top,bt:G.banner.bt,cands:G.banner.cands,rev:G.banner.rev,pt:G.banner.pt,pn:G.banner.pn}:null,
+  ld:G.landing&&G.landing.t>0?{x:+G.landing.x.toFixed(1),y:+G.landing.y.toFixed(1),t:+G.landing.t.toFixed(2),label:G.landing.label,col:G.landing.col}:null,
+  jd:G.judge&&G.judge.t>0?{slot:G.judge.slot,x:+G.judge.x.toFixed(2),t:+G.judge.t.toFixed(2),edge:G.judge.edge?1:0}:null,
+  fl:G.flash>0?+G.flash.toFixed(2):0,lg:G.log.slice(0,8),ov:G.over?1:0,ps:NET.used};
+}
+// 投げる側：相手から届いた盤面を映す（打つ側に切り替わったら、ここから自分で進める）
+function netApply(s){
+ if(!G||!s)return;
+ if(s.hk<NET.lastHk)return;
+ if(humanBats()&&s.hk<=hkOf())return; // 自分が打っている間は、自分が正
+ NET.lastHk=s.hk;
+ const ph0=G.phase,top0=G.top;
+ G.inning=s.inn;G.top=s.top;G.outs=s.o;G.b=s.b;G.s=s.s;
+ G.score.away=s.sc.a.slice();G.score.home=s.sc.h.slice();
+ G.T.away.idx=s.ix.a;G.T.home.idx=s.ix.h;G.T.away.magic=s.mg.a;G.T.home.magic=s.mg.h;G.T.away.pit.sta=s.sta.a;G.T.home.pit.sta=s.sta.h;
+ const B=bat(); G.bases=s.bs.map(i=>i>=0?B.line[i]:null);
+ const cb=curBatter(); cb.bt=s.bt; cb.rev=s.rev; fld().pit.pt=s.pt;
+ if(s.ball){ if(!G.ball)G.ball={trail:[]}; const o=G.ball; if(s.ph==='pitch'||s.ph==='inplay'){o.trail.push([s.ball.x+(s.ball.w||0),s.ball.y]); if(o.trail.length>10)o.trail.shift();} o.x=s.ball.x;o.y=s.ball.y;o.inplay=!!s.ball.ip;o.vanished=!!s.ball.vn;o.wob=s.ball.w;o.foul=!!s.ball.f; }
+ else G.ball=null;
+ G.pitch=s.pty?{type:s.pty,tx:0}:null;
+ G.phase=s.ph; G.t=s.t; G.swing=s.sw; G.ck=s.ck; G.bunt=!!s.bu;
+ if(s.msg){G.msg=s.msg;G.msgT=s.mt;} else G.msgT=0;
+ G.banner=s.bn; G.landing=s.ld; G.judge=s.jd; G.flash=s.fl;
+ G.log=s.lg.slice();
+ if(s.ps>=NET.pseq)NET.waiting=false;
+ if(s.ov&&!G.over){G.over=true;G.phase='end';renderCtrl();renderResult();return;}
+ if(G.phase!==ph0||G.top!==top0)renderCtrl();
+ if(humanBats()){ // ここから自分が打つ番：自分の端末で進める
+  G.ball=null; G.swing=null; G.ck=0; G.cock=false; if(G.phase!=='ready'){G.phase='ready';} G.timer=1.4; NET.used=0; NET.pending=null; renderCtrl();
+ }
+}
+// 投げる側：球を送る
+function netThrow(){
+ if(!NET.room||NET.waiting)return;
+ const t=fld(); const mg=G.sel.magic&&t.magic>0;
+ if(t.pit.cands.length>1)t.pit.pt=t.pit.cands.includes(G.sel.ptype)?G.sel.ptype:t.pit.cands[0];
+ const pp=pitchParams(t.pit,G.sel.spd,G.sel.brk,G.sel.course,mg);
+ G.sel.magic=false;
+ NET.pseq++; NET.waiting=true;
+ NET.room.presence({p:{seq:NET.pseq,hk:hkOf(),pt:t.pit.pt,pp}});
+ say('投げた！',0.8); renderCtrl();
+}
+// 打つ側：相手の球が届いていたら取り出す
+function netTakePitch(){
+ const p=NET.pending; if(!p||p.seq<=NET.used||p.hk!==hkOf())return null;
+ NET.used=p.seq; NET.pending=null; fld().pit.pt=p.pt; return p.pp;
+}
+function netTick(){
+ if(!netOn()||!NET.room)return;
+ const auth=humanBats()&&!G.over;
+ // 打っている間は毎フレーム送る。攻守交代・試合終了の直後にも1回だけ送る（相手がそこから引き継ぐ）
+ if(auth||NET.wasAuth){ NET.lastHk=Math.max(NET.lastHk,hkOf()); NET.room.presence({s:netSnap()}).catch(()=>{}); }
+ NET.wasAuth=auth;
+}
+
+// ---------------- ループ ----------------
+let lastT=null,sbTick=0;
+function frame(ts){ if(lastT===null)lastT=ts; const dt=Math.min(0.05,(ts-lastT)/1000); lastT=ts; tick(dt); requestAnimationFrame(frame); }
+function tick(dt){
+ if(G&&!G.over&&!(netOn()&&!humanBats())){ const ph=G.phase; step(dt); if(G&&G.phase!==ph&&(G.phase==='ready'||G.phase==='windup'))renderCtrl(); }
+ if(G)netTick();
+ render(); sbTick+=dt; if(sbTick>0.1){sbTick=0;renderSB();}
+}
+window.tick=tick;
+window.simGames=function(n=20,opp='mars'){
+ const agg={runsE:0,runsO:0,hr:0,games:n,wins:0}; const keep=OPPKEY; OPPKEY=opp;
+ for(let g=0;g<n;g++){ newGame('auto'); let k=0; while(!G.over&&k<200000){step(0.05);k++;} const e=sum(G.score.home),o=sum(G.score.away); agg.runsE+=e;agg.runsO+=o; if(e>o)agg.wins++; agg.hr+=G.log.filter(s=>s.includes('ホームラン')).length; }
+ OPPKEY=keep; return agg;
+};
+menu();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
