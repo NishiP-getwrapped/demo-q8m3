@@ -70,6 +70,7 @@ button.on{border-color:var(--yellow);background:#5a4012}
 @media (prefers-reduced-motion:reduce){.toy:active{transform:none}}
 /* 試合画面：1画面に収める */
 body.playing{overflow:hidden}
+body.playing,body.playing *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 #app.game{max-width:none;height:100vh;height:100dvh;padding:8px 12px;display:grid;gap:8px;grid-template-columns:100%;grid-template-rows:auto minmax(0,1fr) auto;grid-template-areas:"sb" "board" "ctrl"}
 #app.game #sb{grid-area:sb;margin:0;padding:4px 8px;font-size:13px}
 #app.game #boardwrap{grid-area:board;min-height:0;display:flex;align-items:center;justify-content:center}
@@ -359,7 +360,7 @@ function step(dt){
  if(G.msgT>0)G.msgT-=dt; if(G.flash>0)G.flash-=dt; if(G.banner)G.banner.t-=dt; if(G.landing)G.landing.t-=dt;
  if(G.phase==='ready'){
   G.timer-=dt;
-  if(G.timer<=0&&!humanPitches()&&(!humanBats()||G.cock)){const wd=humanBats()?0.95:0.12; const nx=netOn()?netTakePitch():cpuPitch(); if(nx){G.next=nx;G.phase='windup';G.timer=wd;G.windT=wd;}}
+  if(G.timer<=0&&!humanPitches()&&(!humanBats()||G.cock||G.buntOn||G.timer<-2.0)){const wd=humanBats()?0.95:0.12; const nx=netOn()?netTakePitch():cpuPitch(); if(nx){G.next=nx;G.phase='windup';G.timer=wd;G.windT=wd;}}
  } else if(G.phase==='windup'){
   G.timer-=dt; if(G.timer<=0){startPitch(G.next); if(humanBats())G.bunt=!!G.buntOn;}
  } else if(G.phase==='pitch'){
@@ -678,7 +679,7 @@ function start(mode){
  app.innerHTML=`<div id="sb"></div><div id="boardwrap"><canvas id="board" aria-label="野球盤の盤面"></canvas></div><div id="ctrl"></div><div id="log"></div><div id="resbox"></div>`;
  cv=document.getElementById('board');ctx=cv.getContext('2d');resize();
  newGame(mode);
- cv.addEventListener('pointerdown',e=>{e.preventDefault();cockStart();});
+ cv.addEventListener('pointerdown',e=>{e.preventDefault();cockStart();}); cv.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
  window.addEventListener('pointerup',()=>cockRelease()); window.addEventListener('pointercancel',()=>cockRelease());
  renderCtrl();
 }
@@ -719,11 +720,11 @@ function renderCtrl(){
  }
  c.innerHTML=h;
  const on=(id,fn)=>{const el=document.getElementById(id);if(el)el.onclick=fn;};
- { const sw=document.getElementById('sw'); if(sw){ sw.onpointerdown=e=>{e.preventDefault();cockStart();}; sw.onclick=e=>e.preventDefault(); } }
+ { const sw=document.getElementById('sw'); if(sw){ sw.onpointerdown=e=>{e.preventDefault();cockStart();}; sw.onclick=e=>e.preventDefault(); sw.addEventListener('touchstart',e=>e.preventDefault(),{passive:false}); } }
  on('bn',()=>{G.buntOn=!G.buntOn;renderCtrl();});
  on('th',()=>humanThrow());
  on('mg',()=>{G.sel.magic=!G.sel.magic;renderCtrl();});
- on('back',()=>{if(netOn())netLeave();menu();});
+ on('back',()=>{ if(G&&!G.over&&G.mode!=='auto'&&!confirm(netOn()?'対戦をやめてメニューに戻りますか？（相手の試合も終わります）':'試合をやめてメニューに戻りますか？'))return; if(netOn())netLeave(); menu(); });
  on('sp',()=>{G.spd=G.spd===2.5?1:G.spd===1?5:2.5;renderCtrl();});
  on('skip',()=>{let k=0;while(G&&!G.over&&k<400000){step(0.02);k++;} renderSB();});
  c.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{const v=b.dataset.v,val=isNaN(+v)?v:+v; if(b.dataset.k==='course'&&G.sel.course===val&&G.phase==='ready'){humanThrow();return;} G.sel[b.dataset.k]=val;renderCtrl();});
@@ -789,18 +790,18 @@ function netLobby(){
 }
 async function netJoin(st){
  try{ NET.room=await NET.lobby.join('ykb-'+NET.code.toLowerCase()); }catch(e){ st('部屋に入れませんでした（'+(e&&e.code||'error')+'）'); NET.room=null; return; }
- NET.cfg=myCfg(); NET.oppCfg=null; NET.peer=null; NET.pseq=0; NET.used=0; NET.lastHk=-1;
+ NET.cfg=myCfg(); NET.oppCfg=null; NET.gone=false; NET.peer=null; NET.pseq=0; NET.used=0; NET.lastHk=-1;
  const me={r:NET.role,cfg:NET.cfg}; if(NET.role==='host')me.side=MYSIDE;
  await NET.room.presence(me);
  st(NET.role==='host'?`合言葉は「${NET.code}」。相手に伝えて、入ってくるのを待っています…`:`「${NET.code}」の部屋で、相手を待っています…`);
  NET.base=NET.status;
- const diag=()=>{ if(G)return; const ps=NET.room.peers(); const el=document.getElementById('nst'); if(el)el.textContent=NET.base+`（接続:${NET.room.connected()?'○':'×'}・部屋に${ps.length}人・相手の設定:${ps.filter(p=>!p.sameTab&&p.presence&&p.presence.r).map(p=>p.presence.r).join(',')||'なし'}）`; };
+ const diag=()=>{ if(G||!NET.room)return; const ps=NET.room.peers(); const el=document.getElementById('nst'); if(el)el.textContent=NET.base+`（接続:${NET.room.connected()?'○':'×'}・部屋に${ps.length}人・相手の設定:${ps.filter(p=>!p.sameTab&&p.presence&&p.presence.r).map(p=>p.presence.r).join(',')||'なし'}）`; };
  NET.room.onPeers(ch=>{ diag(); netOnPeers(ch.peers); }, e=>st('部屋の接続が切れました（'+e.code+'）'));
  NET.room.onConnection(()=>diag(), e=>st('部屋に接続できません（'+e.code+'）'));
 }
 function netOnPeers(peers){
  const opp=peers.find(p=>!p.sameTab&&p.presence&&p.presence.r&&p.presence.r!==NET.role);
- if(!opp){ if(G&&netOn()&&NET.peer&&!G.over){ say('相手がいなくなりました',2.0); } return; }
+ if(!opp){ if(G&&netOn()&&NET.peer&&!G.over&&!NET.gone){ NET.gone=true; say('相手が対戦をやめました。メニューへ戻ります',3.0); setTimeout(()=>{ if(G&&netOn()){ netLeave(); menu(); } },3000); } return; }
  const pr=opp.presence;
  if(!G){ // まだ試合前：相手の設定がそろったら始める
   if(!pr.cfg||!TEAMS[pr.cfg.team])return;
