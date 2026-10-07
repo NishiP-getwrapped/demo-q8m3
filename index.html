@@ -29,7 +29,8 @@ button.on{border-color:var(--yellow);background:#5a4012}
 .knob button.on{background:var(--yellow);color:#222;font-weight:bold}
 .ctl{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}
 .ctlcol{min-width:0}
-#board{display:block;width:100%;border-radius:14px;background:#000;touch-action:manipulation}
+#board{display:block;width:100%;border-radius:14px;background:#000;touch-action:none}
+.bigbat,#board,.batrow{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}
 #sb{display:flex;align-items:center;gap:12px;background:var(--panel);border-radius:12px;padding:6px 10px;margin-bottom:6px;font-size:14px;flex-wrap:wrap}
 .ls{display:grid;grid-template-columns:62px repeat(3,22px) 30px;gap:2px;text-align:center;font-variant-numeric:tabular-nums}
 .ls .h{color:var(--sub);font-size:11px}.ls .tm{text-align:left}
@@ -316,7 +317,7 @@ function cpuPitch(){
 // ---------------- 打撃（バネのバット） ----------------
 function doSwing(){
  if(G.phase!=='pitch'||G.swing)return;
- G.swing={t:G.t,p0:BAT_REST*(1-(G.ck||0))}; G.ck=0; G.cock=false;
+ G.swing={t:G.t,age:0,p0:BAT_REST*(1-(G.ck||0))}; G.dry=null; G.ck=0; G.cock=false;
  if(humanBats())G.st.sw++;
  const b=G.ball;
  if(b.crossT!==null)tryContact((G.t+SWEET)-b.crossT);
@@ -353,6 +354,7 @@ function launch(angDeg,v,bunt){
 function step(dt){
  if(!G||G.over)return;
  dt*=G.spd;
+ if(G.swing)G.swing.age=(G.swing.age||0)+dt; if(G.dry){G.dry.age+=dt; if(G.dry.age>0.45)G.dry=null;}
  { const tg=G.cock||(!humanBats()&&['windup','pitch'].includes(G.phase)&&!G.swing&&!G.bunt); G.ck=G.ck||0; G.ck=tg?Math.min(1,G.ck+dt/0.09):Math.max(0,G.ck-dt/0.3); } // バットを引く（構え）／戻す
  if(G.msgT>0)G.msgT-=dt; if(G.flash>0)G.flash-=dt; if(G.banner)G.banner.t-=dt; if(G.landing)G.landing.t-=dt;
  if(G.phase==='ready'){
@@ -481,7 +483,7 @@ function humanThrow(){
 function humanSwing(){ if(G&&humanBats()&&!G.bunt&&G.phase==='pitch')doSwing(); }
 const BAT_REST=0.75; // 構えていないときのバット（前に出ている）。0＝引き切った構え／1＝振り切り
 function cockStart(){ if(G&&!G.over&&humanBats()&&!G.bunt&&!G.buntOn&&!(G.phase==='pitch'&&G.swing))G.cock=true; }
-function cockRelease(){ if(!G||!G.cock)return; G.cock=false; humanSwing(); }
+function cockRelease(){ if(!G||!G.cock)return; G.cock=false; humanSwing(); if(!G.swing){G.dry={age:0,p0:BAT_REST*(1-(G.ck||0))}; G.ck=0;} } // 投球の前に離したら、空振りで振り切る（カウントは増えない）
 
 // ---------------- 描画：野球盤を上から斜めに見る（打者席から見下ろす） ----------------
 let cv,ctx,W=360,H=480,DPR=1;
@@ -630,7 +632,7 @@ function peg(x,y,imKey,col,num,run,batter,badge){
  if(badge&&badge.ic){ctx.fillStyle=badge.col;ctx.beginPath();ctx.arc(sx-r*0.8,cy-r*0.75,r*0.48,0,7);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=Math.max(1,r*0.08);ctx.stroke();ctx.fillStyle='#fff';ctx.font=`bold ${Math.round(r*0.58)}px sans-serif`;ctx.textAlign='center';ctx.fillText(badge.ic,sx-r*0.8,cy-r*0.55);}
  if(run){ctx.fillStyle='#ffef7a';ctx.font=`bold ${Math.round(r*0.6)}px sans-serif`;ctx.textAlign='center';ctx.fillText('走',sx-r*0.95,cy-r*0.7);}
 }
-function batAngle(){ if(G.bunt&&G.phase==='pitch')return 0.6; const rest=BAT_REST*(1-(G.ck||0)); if(!G.swing)return rest; const p0=G.swing.p0; return p0+(1-p0)*clamp((G.t-G.swing.t)/0.075,0,1); }
+function batAngle(){ if(G.bunt&&G.phase==='pitch')return 0.6; const rest=BAT_REST*(1-(G.ck||0)); const sw=G.swing||G.dry; if(!sw)return rest; const p0=sw.p0; return p0+(1-p0)*clamp((sw.age||0)/0.075,0,1); }
 
 // ---------------- 画面（DOM） ----------------
 const app=document.getElementById('app');
@@ -681,6 +683,7 @@ function start(mode){
  renderCtrl();
 }
 window.start=start; window.menu=menu;
+document.addEventListener('contextmenu',e=>{if(e.target&&e.target.closest&&e.target.closest('#board,.bigbat,.batrow'))e.preventDefault();});
 document.addEventListener('keyup',e=>{if(e.code==='Space'){e.preventDefault();cockRelease();}});
 document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();if(!e.repeat)cockStart();} if(e.code==='Enter')humanThrow();});
 window.addEventListener('resize',resize);
@@ -834,7 +837,7 @@ function netSnap(){
   sc:{a:G.score.away,h:G.score.home},ix:{a:G.T.away.idx,h:G.T.home.idx},mg:{a:G.T.away.magic,h:G.T.home.magic},sta:{a:+G.T.away.pit.sta.toFixed(3),h:+G.T.home.pit.sta.toFixed(3)},
   bt:cb.bt,rev:cb.rev,pt:F.pit.pt,
   ball:b?{x:+b.x.toFixed(2),y:+b.y.toFixed(2),ip:b.inplay?1:0,vn:b.vanished?1:0,w:+(b.wob||0).toFixed(2),f:b.foul?1:0}:null,
-  pty:G.pitch?G.pitch.type:null,sw:G.swing?{t:+G.swing.t.toFixed(3),p0:+G.swing.p0.toFixed(2)}:null,ck:+(G.ck||0).toFixed(2),bu:G.bunt?1:0,
+  pty:G.pitch?G.pitch.type:null,sw:G.swing?{t:+G.swing.t.toFixed(3),p0:+G.swing.p0.toFixed(2),age:+(G.swing.age||0).toFixed(3)}:null,dr:G.dry?{p0:+G.dry.p0.toFixed(2),age:+G.dry.age.toFixed(3)}:null,ck:+(G.ck||0).toFixed(2),bu:G.bunt?1:0,
   msg:G.msgT>0?G.msg:'',mt:+Math.max(0,G.msgT).toFixed(2),bn:G.banner&&G.banner.t>0?{t:+G.banner.t.toFixed(2),top:G.banner.top,bt:G.banner.bt,cands:G.banner.cands,rev:G.banner.rev,pt:G.banner.pt,pn:G.banner.pn}:null,
   ld:G.landing&&G.landing.t>0?{x:+G.landing.x.toFixed(1),y:+G.landing.y.toFixed(1),t:+G.landing.t.toFixed(2),label:G.landing.label,col:G.landing.col}:null,
   jd:G.judge&&G.judge.t>0?{slot:G.judge.slot,x:+G.judge.x.toFixed(2),t:+G.judge.t.toFixed(2),edge:G.judge.edge?1:0}:null,
@@ -855,7 +858,7 @@ function netApply(s){
  if(s.ball){ if(!G.ball)G.ball={trail:[]}; const o=G.ball; if(s.ph==='pitch'||s.ph==='inplay'){o.trail.push([s.ball.x+(s.ball.w||0),s.ball.y]); if(o.trail.length>10)o.trail.shift();} o.x=s.ball.x;o.y=s.ball.y;o.inplay=!!s.ball.ip;o.vanished=!!s.ball.vn;o.wob=s.ball.w;o.foul=!!s.ball.f; }
  else G.ball=null;
  G.pitch=s.pty?{type:s.pty,tx:0}:null;
- G.phase=s.ph; G.t=s.t; G.swing=s.sw; G.ck=s.ck; G.bunt=!!s.bu;
+ G.phase=s.ph; G.t=s.t; G.swing=s.sw; G.dry=s.dr; G.ck=s.ck; G.bunt=!!s.bu;
  if(s.msg){G.msg=s.msg;G.msgT=s.mt;} else G.msgT=0;
  G.banner=s.bn; G.landing=s.ld; G.judge=s.jd; G.flash=s.fl;
  G.log=s.lg.slice();
